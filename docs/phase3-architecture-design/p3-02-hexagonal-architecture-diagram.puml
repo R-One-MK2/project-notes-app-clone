@@ -1,0 +1,81 @@
+@startuml AppleNotesHexagonal
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam actor {
+    BackgroundColor #E1F5FE
+    BorderColor #01579B
+}
+skinparam circle {
+    BackgroundColor #F3E5F5
+    BorderColor #4A148C
+}
+skinparam rectangle {
+    BackgroundColor #E8F5E9
+    BorderColor #1B5E20
+}
+
+actor User as "User\n(External)"
+
+' Driving Adapters (Input)
+rectangle "Driving Adapters (Input)" as DrivingAdapters {
+    component HTTPAdapter as "HTTP API Adapter\n(FastAPI)\nPORT: /notes, /folders, /auth\nCONVERT: JSON → Domain Objects"
+    component CLIAdapter as "CLI Adapter\n(Future)\nCOMMAND: create-note, search"
+}
+
+' Core Domain (Hexagon)
+circle "CORE DOMAIN\n\nNoteService\nFolderService\nSearchService\nAuthService\nUserService\n\nDomain Objects:\nUser, Note, Folder" as CoreDomain
+
+' Ports (Interfaces)
+rectangle "Ports (Interfaces)" as Ports {
+    component NotePort as "NotePort\ncreate, read, update, delete, search"
+    component FolderPort as "FolderPort\ncreate, organize, move, delete"
+    component AuthPort as "AuthPort\nsignup, login, verify"
+    component PersistencePort as "PersistencePort\nsave, find, query, delete"
+}
+
+' Driven Adapters (Output)
+rectangle "Driven Adapters (Output)" as DrivenAdapters {
+    component DatabaseAdapter as "Database Adapter\n(SQLAlchemy)\nIMPLEMENT: PersistencePort\nCONVERT: Domain Objects → SQL"
+    component EmailAdapter as "Email Adapter\n(Future)\nSEND: Notifications"
+}
+
+' External Systems
+database PostgreSQL as "PostgreSQL\n(users, folders, notes)"
+rectangle EmailService as "Email Service\n(SendGrid/SMTP)"
+
+User --> HTTPAdapter
+HTTPAdapter --> CoreDomain : Calls ports
+CLIAdapter --> CoreDomain : Calls ports
+
+CoreDomain --> NotePort : Declares
+CoreDomain --> FolderPort : Declares
+CoreDomain --> AuthPort : Declares
+CoreDomain --> PersistencePort : Declares
+
+NotePort --> DatabaseAdapter : Implemented by
+FolderPort --> DatabaseAdapter : Implemented by
+AuthPort --> DatabaseAdapter : Implemented by
+PersistencePort --> DatabaseAdapter : Implemented by
+
+DatabaseAdapter --> PostgreSQL : SQL Queries
+EmailAdapter --> EmailService : (Future)
+
+note right of CoreDomain
+    Pure business logic
+    No framework dependencies
+    Testable in isolation
+end note
+
+note right of Ports
+    Contracts (interfaces)
+    Define what adapters must implement
+    Core domain calls these
+end note
+
+note right of DrivenAdapters
+    Concrete implementations
+    Swap adapters without changing core
+    Database → Repository pattern
+end note
+
+@enduml

@@ -1,0 +1,47 @@
+@startuml AppleNotesContext
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam actor {
+    BackgroundColor #E1F5FE
+    BorderColor #01579B
+}
+skinparam database {
+    BackgroundColor #FFF3E0
+    BorderColor #E65100
+}
+
+actor User as "End User"
+entity EmailService as "Email Service\n(Future: Password Reset)"
+database PostgreSQL as "PostgreSQL\nDatabase"
+
+rectangle "Apple Notes System" as System {
+    component Frontend as "Next.js Frontend\n(React + TypeScript)"
+    component Backend as "FastAPI Backend\n(Python + SQLAlchemy)"
+}
+
+User --> Frontend : Uses Web UI
+Frontend --> Backend : HTTP/REST (JSON)
+Backend --> PostgreSQL : SQL Queries
+Backend -.-> EmailService : (Future Phase 2+)
+
+note bottom of System
+    Phase 1 MVP: Single-user, no external integrations
+    Scope: Authentication, CRUD, Search, Organization
+    Out of scope: iCloud sync, Rich text, Collaboration
+end note
+
+note right of Frontend
+    - Note editor (create/edit/delete)
+    - Folder tree navigation
+    - Search interface
+    - Auto-save indicator
+end note
+
+note right of Backend
+    - Authentication (JWT)
+    - Note/Folder/User services
+    - Full-text search
+    - Auto-save logic (3-sec debounce)
+end note
+
+@enduml

@@ -1,0 +1,189 @@
+@startuml AppleNotesClassDiagram
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam class {
+    BackgroundColor #E8F5E9
+    BorderColor #1B5E20
+}
+skinparam interface {
+    BackgroundColor #F3E5F5
+    BorderColor #4A148C
+}
+
+' Domain Objects
+class User {
+    user_id: UUID
+    email: str
+    password_hash: str
+    created_at: datetime
+    verify_password(password: str): bool
+}
+
+class Note {
+    note_id: UUID
+    user_id: UUID
+    folder_id: UUID
+    title: str
+    content: str
+    is_pinned: bool
+    is_deleted: bool
+    created_at: datetime
+    updated_at: datetime
+}
+
+class Folder {
+    folder_id: UUID
+    user_id: UUID
+    parent_folder_id: UUID?
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    is_valid_nesting(): bool
+}
+
+' Services
+class AuthService {
+    user_repo: UserRepository
+    signup(email, password): User
+    login(email, password): str
+    verify_token(token): UUID
+}
+
+class NoteService {
+    note_repo: NoteRepository
+    create_note(user_id, folder_id, title, content): Note
+    get_note(user_id, note_id): Note
+    update_note(user_id, note_id, title, content): Note
+    delete_note(user_id, note_id): void
+    pin_note(user_id, note_id): Note
+    unpin_note(user_id, note_id): Note
+}
+
+class FolderService {
+    folder_repo: FolderRepository
+    create_folder(user_id, name, parent_id?): Folder
+    get_folders(user_id): List[Folder]
+    rename_folder(user_id, folder_id, name): Folder
+    delete_folder(user_id, folder_id): void
+    move_note(user_id, note_id, folder_id): Note
+}
+
+class SearchService {
+    note_repo: NoteRepository
+    search_notes(user_id, query, folder_id?): List[Note]
+}
+
+' Repository Interfaces (Ports)
+interface NoteRepository {
+    find_by_id(note_id): Note?
+    find_all_by_user(user_id): List[Note]
+    find_by_user_folder(user_id, folder_id): List[Note]
+    find_pinned(user_id, folder_id): List[Note]
+    search(user_id, query, folder_id?): List[Note]
+    save(note): void
+    update(note): void
+    delete(note_id): void
+}
+
+interface FolderRepository {
+    find_by_id(folder_id): Folder?
+    find_by_user(user_id): List[Folder]
+    find_children(parent_id): List[Folder]
+    save(folder): void
+    update(folder): void
+    delete(folder_id): void
+}
+
+interface UserRepository {
+    find_by_id(user_id): User?
+    find_by_email(email): User?
+    save(user): void
+}
+
+' Repository Implementations (Adapters)
+class SQLAlchemy_NoteRepository {
+    db_session: Session
+    find_by_id(note_id): Note?
+    find_all_by_user(user_id): List[Note]
+    search(user_id, query, folder_id?): List[Note]
+    save(note): void
+}
+
+class SQLAlchemy_FolderRepository {
+    db_session: Session
+    find_by_id(folder_id): Folder?
+    find_by_user(user_id): List[Folder]
+    save(folder): void
+}
+
+class SQLAlchemy_UserRepository {
+    db_session: Session
+    find_by_id(user_id): User?
+    find_by_email(email): User?
+    save(user): void
+}
+
+' DTOs
+class NoteDTO {
+    note_id: UUID
+    title: str
+    content: str
+    is_pinned: bool
+    created_at: datetime
+    updated_at: datetime
+}
+
+class CreateNoteRequest {
+    title: str
+    content: str
+    folder_id: UUID
+}
+
+class UpdateNoteRequest {
+    title: str?
+    content: str?
+}
+
+' Relationships
+AuthService --> UserRepository
+NoteService --> NoteRepository
+FolderService --> FolderRepository
+SearchService --> NoteRepository
+
+NoteRepository <|-- SQLAlchemy_NoteRepository
+FolderRepository <|-- SQLAlchemy_FolderRepository
+UserRepository <|-- SQLAlchemy_UserRepository
+
+NoteService --> Note : operates on
+FolderService --> Folder : operates on
+FolderService --> Note : manages
+AuthService --> User : creates/verifies
+
+NoteDTO --> Note : serializes
+CreateNoteRequest --> NoteService : input
+UpdateNoteRequest --> NoteService : input
+
+note right of AuthService
+    Implements AuthPort
+    Pure business logic
+end note
+
+note right of NoteService
+    Implements NotePort
+    Uses NoteRepository
+    (abstract interface)
+end note
+
+note right of SQLAlchemy_NoteRepository
+    Concrete implementation
+    Database adapter
+    Handles SQL queries
+end note
+
+note right of NoteDTO
+    Transfer object
+    Hides password_hash
+    JSON serializable
+end note
+
+@enduml

@@ -1,0 +1,68 @@
+@startuml AppleNotesLayeredArchitecture
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam rectangle {
+    BackgroundColor #E3F2FD
+    BorderColor #1565C0
+}
+
+package "Presentation Layer" as Presentation {
+    component Frontend as "Next.js Frontend\n(React + TypeScript + Tailwind)"
+    component State as "State Management\n(React Hooks / Context)"
+}
+
+package "Application Layer" as Application {
+    component APIRouter as "FastAPI Routes\n(HTTP endpoints)"
+    component Validation as "Request Validation\n(Pydantic models)"
+    component Auth as "JWT Verification"
+}
+
+package "Domain Layer" as Domain {
+    component NoteService as "NoteService\n(create, read, update, delete)"
+    component FolderService as "FolderService\n(organize, hierarchy)"
+    component SearchService as "SearchService\n(full-text search)"
+    component AuthService as "AuthService\n(signup, login, bcrypt)"
+}
+
+package "Infrastructure Layer" as Infrastructure {
+    component NoteRepository as "NoteRepository\n(SQLAlchemy)"
+    component FolderRepository as "FolderRepository\n(SQLAlchemy)"
+    component UserRepository as "UserRepository\n(SQLAlchemy)"
+    database DB as "PostgreSQL\n(users, folders, notes)"
+}
+
+Presentation --> Application : HTTP/REST (JSON)
+APIRouter --> Validation : Request body
+Validation --> Auth : JWT token
+Auth --> Domain : Verified user_id
+NoteService --> NoteRepository : Query/Insert/Update
+FolderService --> FolderRepository : Query/Insert/Update
+AuthService --> UserRepository : Query password_hash
+NoteRepository --> DB : SQL
+FolderRepository --> DB : SQL
+UserRepository --> DB : SQL
+
+note right of Presentation
+    User interacts here
+    Sends HTTP requests
+end note
+
+note right of Application
+    Endpoint routing
+    Input validation
+    Authentication check
+end note
+
+note right of Domain
+    Business logic
+    No HTTP/DB knowledge
+    Reusable services
+end note
+
+note right of Infrastructure
+    Data access layer
+    Database queries
+    ORM abstractions
+end note
+
+@enduml

@@ -1,0 +1,58 @@
+@startuml AppleNotesDataFlow
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+    BackgroundColor #F3E5F5
+    BorderColor #4A148C
+}
+
+' Create Note Flow
+rectangle "CREATE NOTE FLOW" as CreateFlow {
+    entity User1 as "User"
+    entity Frontend1 as "Frontend\n(Next.js)"
+    entity API1 as "POST /notes\n(FastAPI)"
+    entity Service1 as "NoteService"
+    entity Repo1 as "NoteRepository"
+    entity DB1 as "PostgreSQL\nINSERT"
+    entity Response1 as "Response\n{note_id, ...}"
+}
+
+User1 --> Frontend1 : Types title + content
+Frontend1 --> API1 : POST /notes\n{title, content, folder_id}
+API1 --> Service1 : Validated request\n+ auth verified
+Service1 --> Repo1 : create_note(user_id, ...)"
+Repo1 --> DB1 : INSERT note row
+DB1 --> Response1 : Returns note_id
+Response1 --> Frontend1 : Auto-update note list
+Frontend1 --> User1 : "Saved" indicator
+
+note bottom of CreateFlow
+    Total latency target: < 200ms (API)
+    Immediate persistence: Database write before UI update
+end note
+
+' Search Flow
+rectangle "SEARCH NOTES FLOW" as SearchFlow {
+    entity User2 as "User"
+    entity Frontend2 as "Frontend\n(Next.js)"
+    entity API2 as "GET /search\n(FastAPI)"
+    entity Service2 as "SearchService"
+    entity DB2 as "PostgreSQL\nSELECT (full-text)"
+    entity Response2 as "Response\n[{note_id, title, preview}]"
+}
+
+User2 --> Frontend2 : Types search query (debounced 150ms)
+Frontend2 --> API2 : GET /search?q={query}\n&folder_id={X}
+API2 --> Service2 : Validated query + auth
+Service2 --> DB2 : SELECT * WHERE tsvector @@tsquery\nAND folder_id = X AND is_deleted = FALSE
+DB2 --> Response2 : Results with match context
+Response2 --> Frontend2 : Display filtered notes
+Frontend2 --> User2 : Real-time results
+
+note bottom of SearchFlow
+    Target latency: < 500ms
+    Debounce reduces DB load
+    Full-text search uses PostgreSQL tsvector
+end note
+
+@enduml
