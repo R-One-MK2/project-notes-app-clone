@@ -1,0 +1,62 @@
+@startuml AppleNotesERD
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam entity {
+    BackgroundColor #E8F5E9
+    BorderColor #1B5E20
+}
+
+entity User {
+    * user_id : UUID <<PK>>
+    --
+    * email : string <<UNIQUE>>
+    * password_hash : string
+    * created_at : timestamp
+    * updated_at : timestamp
+}
+
+entity Folder {
+    * folder_id : UUID <<PK>>
+    --
+    * user_id : UUID <<FK>>
+    parent_folder_id : UUID <<FK, nullable>>
+    * name : string
+    * created_at : timestamp
+    * updated_at : timestamp
+}
+
+entity Note {
+    * note_id : UUID <<PK>>
+    --
+    * user_id : UUID <<FK>>
+    * folder_id : UUID <<FK>>
+    * title : string
+    * content : text
+    * is_pinned : boolean
+    * is_deleted : boolean
+    * created_at : timestamp
+    * updated_at : timestamp
+}
+
+User ||--o{ Folder : owns
+User ||--o{ Note : owns
+Folder ||--o{ Note : contains
+Folder ||--o{ Folder : nests
+
+note right of User
+    Each user has isolated
+    notes and folders
+end note
+
+note right of Folder
+    Self-referential FK
+    enables hierarchical
+    folder nesting (max depth 5)
+end note
+
+note right of Note
+    is_deleted enables soft delete
+    (move to Trash without purge)
+end note
+
+@enduml

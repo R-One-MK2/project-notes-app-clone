@@ -1,0 +1,45 @@
+@startuml AppleNotesUseCase
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam actor {
+    BackgroundColor #E1F5FE
+    BorderColor #01579B
+}
+skinparam usecase {
+    BackgroundColor #F3E5F5
+    BorderColor #4A148C
+}
+
+actor User as "Authenticated User"
+
+rectangle "Apple Notes System" {
+    usecase UC1 as "Create Note\n(FR-002)"
+    usecase UC2 as "View Note\n(FR-003)"
+    usecase UC3 as "Update Note\n(FR-004)"
+    usecase UC4 as "Delete Note\n(FR-005)"
+    usecase UC5 as "Organize Folders\n(FR-006)"
+    usecase UC6 as "Search Notes\n(FR-007)"
+    usecase UC7 as "Pin Note\n(FR-008)"
+    usecase UC8 as "View Note List\n(FR-009)"
+    usecase UC9 as "Authenticate\n(FR-001)"
+}
+
+User --> UC9 : initiates
+
+User --> UC1 : creates
+User --> UC2 : opens
+User --> UC3 : edits
+User --> UC4 : removes
+User --> UC5 : organizes with
+User --> UC6 : searches in
+User --> UC7 : marks favorite
+User --> UC8 : browses
+
+UC1 .> UC3 : extends
+UC1 .> UC8 : includes
+UC2 .> UC3 : can lead to
+UC6 .> UC2 : includes
+UC5 --> UC8 : affects
+UC7 .> UC8 : changes display
+
+@enduml

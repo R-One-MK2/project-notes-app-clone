@@ -1,0 +1,51 @@
+@startuml AppleNotesNoteLifecycle
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam state {
+    BackgroundColor #F3E5F5
+    BorderColor #4A148C
+}
+
+[*] --> Created : FR-002: Create Note
+
+Created --> Editing : FR-004: Open & Edit
+Editing --> Saved : Auto-save (3 sec idle)
+Saved --> Editing : Continue editing
+Saved --> Pinned : FR-008: Pin Note
+Pinned --> Saved : Unpin Note
+Saved --> Deleted : FR-005: Delete (soft)
+Deleted --> Restored : FR-005: Restore from Trash
+Restored --> Saved : Note back in folder
+
+Deleted --> Purged : FR-005: Permanent Delete
+Purged --> [*]
+
+Saved --> [*] : Note exists in folder
+Deleted --> [*] : Note in Trash (recoverable)
+
+note right of Created
+    Note created with title + content
+    Assigned timestamp, saved to DB
+end note
+
+note right of Editing
+    FR-004: User opens and edits note
+    Changes persisted on 3-sec pause
+end note
+
+note right of Pinned
+    FR-008: Note marked as favorite
+    Appears at top of note list
+end note
+
+note right of Deleted
+    FR-005: Soft delete (is_deleted=true)
+    Note moved to Trash folder
+end note
+
+note right of Restored
+    FR-005: User restores from Trash
+    Note returned to original folder
+end note
+
+@enduml
