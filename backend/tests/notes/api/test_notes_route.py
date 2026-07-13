@@ -10,8 +10,8 @@ Cycles:
   [x] Cycle 1: Route returns HTTP 200
   [x] Cycle 2: Response body is {"status": "success"}
   [x] Cycle 3: Request is logged at INFO level
-  [ ] Cycle 4: Log message includes HTTP method and path
-  [ ] Cycle 5: (Refactor) Extract router into app/notes/api/v1/router.py
+  [x] Cycle 4: Log message includes HTTP method and path
+  [x] Cycle 5: (Refactor) Extract router into app/notes/api/v1/router.py
 
 Out of scope (future sessions):
   - Request body validation (Session 2)
@@ -81,9 +81,28 @@ def test_post_notes_success_status():
     assert response.json() == {"status": "success"}
 
 
-def test_post_notes_logs_the_request(caplog):
-    """Log should include 'POST' and '/api/v1/notes'."""
+def test_post_notes_logs_at_info_level(caplog):
+    """
+    Cycle 3: At least one INFO-level log record should be emitted
+    when POST /api/v1/notes is called.
+    """
+
     caplog.set_level(logging.INFO)
+    client.post("/api/v1/notes", json={})
+
+    info_records = [r for r in caplog.records if r.levelname == "INFO"]
+
+    assert len(info_records) >= 1, "Expected atleast one INFO log record"
+
+
+def test_post_notes_log_includes_method_and_path(caplog):
+    """
+    Cycle 4: The log message should include HTTP method and path
+    so it's actionable in production troubleshooting.
+    """
+
+    caplog.set_level(logging.INFO)
+
     client.post("/api/v1/notes", json={})
 
     assert "POST" in caplog.text
