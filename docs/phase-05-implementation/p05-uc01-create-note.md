@@ -26,6 +26,143 @@ This use case *completes* three functional requirements:
 
 ---
 
+## Acceptance Criteria
+
+> Single source of truth for verifiable behaviors of the Create Note use case.
+> **Traceability chain:** FR → UC → AC → Test → Code → Git commit.
+> **Discipline:** Every test cites an AC. Every AC cites an FR. Every commit cites the AC(s) it satisfies.
+
+**Legend:** ⚪ Planned · 🟡 In Progress · 🟢 Verified · 🔴 Failing
+
+#### AC Group 1: HTTP Boundary — Structural Validation
+
+Enforced at the FastAPI/Pydantic layer. Fail-fast before the domain is invoked. Failures result in HTTP 422 (Unprocessable Entity).
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-01 | Valid, complete request returns HTTP 200 with `{"status": "success"}` | HTTP | FR-002 | `test_valid_request_returns_success` | 2 | 🟡 |
+| AC-02 | Request missing `title` field returns 422 | HTTP (Pydantic) | FR-002 | `test_missing_title_returns_422` | 2 | 🟡 |
+| AC-03 | Request with non-string `title` returns 422 | HTTP (Pydantic) | FR-002 | `test_title_wrong_type_returns_422` | 2 | 🟡 |
+| AC-04 | Request missing `folder_id` field returns 422 | HTTP (Pydantic) | FR-002 | `test_missing_folder_id_returns_422` | 2 | 🟡 |
+| AC-05 | Request with malformed UUID `folder_id` returns 422 | HTTP (Pydantic) | FR-002 | `test_invalid_folder_id_returns_422` | 2 | 🟡 |
+| AC-06 | Request missing `content` is accepted (content is optional, defaults to empty) | HTTP (Pydantic) | FR-002 | `test_missing_content_is_optional` | 2 | 🟡 |
+
+#### AC Group 2: Domain — Business Rule Validation
+
+Enforced inside the domain (Value Objects and Domain Services). They protect the domain regardless of how data arrives (HTTP, CLI, tests).
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-07 | Empty string title is rejected | Domain (Title VO) | FR-002 | `test_title_empty_raises` | 3 | ⚪ |
+| AC-08 | Whitespace-only title is rejected | Domain (Title VO) | FR-002 | `test_title_whitespace_only_raises` | 3 | ⚪ |
+| AC-09 | Title over 255 characters is rejected | Domain (Title VO) | FR-002 | `test_title_too_long_raises` | 3 | ⚪ |
+| AC-10 | Title with leading/trailing whitespace is stripped | Domain (Title VO) | FR-002 | `test_title_strips_whitespace` | 3 | ⚪ |
+| AC-11 | Content over 1 MB is rejected | Domain (Content VO) | FR-002 | `test_content_too_large_raises` | 3 | ⚪ |
+| AC-12 | Empty content is allowed | Domain (Content VO) | FR-002 | `test_content_empty_allowed` | 3 | ⚪ |
+
+#### AC Group 3: Domain — Aggregate Invariants
+
+Govern how the `Note` aggregate is constructed and behaves.
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-13 | Note is created with a fresh UUID (uniqueness) | Domain (Note.create) | FR-002 | `test_note_create_generates_unique_id` | 3 | ⚪ |
+| AC-14 | Note has server-generated `created_at` timestamp | Domain (Note.create) | FR-002 | `test_note_create_sets_created_at` | 3 | ⚪ |
+| AC-15 | Note has server-generated `updated_at` timestamp equal to `created_at` on creation | Domain (Note.create) | FR-002 | `test_note_create_sets_updated_at_equal_to_created_at` | 3 | ⚪ |
+| AC-16 | New note defaults to `is_pinned=False` and `is_deleted=False` | Domain (Note.create) | FR-002 | `test_note_create_defaults` | 3 | ⚪ |
+
+#### AC Group 4: Domain Service — Business Logic
+
+Enforced by `NoteService.create_note()`, which orchestrates the domain logic.
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-17 | Service verifies the target folder exists | Domain (NoteService) | FR-002, FR-006 | `test_create_note_folder_must_exist` | 4 | ⚪ |
+| AC-18 | Service verifies the target folder belongs to the requesting user (authorization) | Domain (NoteService) | FR-002, NFR-002 | `test_create_note_folder_must_belong_to_user` | 4 | ⚪ |
+| AC-19 | Service persists the note via `NoteRepository.save()` | Domain (NoteService) | FR-002 | `test_create_note_persists_via_repository` | 4 | ⚪ |
+| AC-20 | Service returns the created Note aggregate | Domain (NoteService) | FR-002 | `test_create_note_returns_note` | 4 | ⚪ |
+
+#### AC Group 5: Persistence — Adapter Behavior
+
+Verify the SQLAlchemy repository correctly translates between the domain and the database.
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-21 | Repository writes note to `notes` table via ACID transaction | Infrastructure | FR-002, NFR-001 | `test_note_repository_saves_to_db` | 5 | ⚪ |
+| AC-22 | Repository can retrieve the saved note by ID | Infrastructure | FR-002 | `test_note_repository_finds_by_id` | 5 | ⚪ |
+| AC-23 | Repository preserves title and content values exactly | Infrastructure | FR-002 | `test_note_repository_preserves_values` | 5 | ⚪ |
+| AC-24 | Repository failures propagate as domain-safe exceptions | Infrastructure | NFR-001 | `test_note_repository_db_error_raises` | 5 | ⚪ |
+
+#### AC Group 6: Authentication & Authorization
+
+Verify JWT-based authentication and authorization at the HTTP boundary.
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-25 | Request without `Authorization` header returns 401 | HTTP (Auth Dependency) | FR-001, NFR-002 | `test_missing_auth_returns_401` | 6 | ⚪ |
+| AC-26 | Request with invalid JWT returns 401 | HTTP (Auth Dependency) | FR-001, NFR-002 | `test_invalid_jwt_returns_401` | 6 | ⚪ |
+| AC-27 | Request with expired JWT returns 401 | HTTP (Auth Dependency) | FR-001, NFR-002 | `test_expired_jwt_returns_401` | 6 | ⚪ |
+| AC-28 | `user_id` is extracted from JWT `sub` claim, never from request body | HTTP (Auth Dependency) | FR-001, NFR-002 | `test_user_id_from_jwt_not_body` | 6 | ⚪ |
+| AC-29 | Cross-user folder access returns 404 (info-hiding — does not reveal existence) | Domain + HTTP | NFR-002 | `test_other_users_folder_returns_404` | 6 | ⚪ |
+
+#### AC Group 7: Response Contract
+
+Define what the client receives when creation succeeds.
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-30 | Successful creation returns HTTP 201 (Created), not 200 | HTTP | FR-002 | `test_create_note_returns_201` | 7 | ⚪ |
+| AC-31 | Response body is a `NoteDTO` containing `note_id`, `title`, `content`, `folder_id`, `is_pinned`, `created_at`, `updated_at` | HTTP (DTO) | FR-002 | `test_response_matches_note_dto` | 7 | ⚪ |
+| AC-32 | Response never exposes `user_id` or `is_deleted` (information hiding) | HTTP (DTO) | NFR-002 | `test_response_hides_internal_fields` | 7 | ⚪ |
+
+#### AC Group 8: Observability
+
+Verify the endpoint is observable in production.
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-33 | Every POST is logged at INFO level | Middleware/Route | NFR-005 | `test_post_notes_logs_at_info_level` | 1 | 🟢 |
+| AC-34 | Log message includes HTTP method and path | Middleware/Route | NFR-005 | `test_post_notes_log_includes_method_and_path` | 1 | 🟢 |
+| AC-35 | Failed requests (4xx, 5xx) are logged with appropriate severity | Middleware/Route | NFR-005 | `test_failed_requests_are_logged` | 6 | ⚪ |
+
+#### AC Group 9: End-to-End (Integration)
+
+Verify the full stack, with a real database.
+
+| AC ID | Description | Layer | FR / NFR | Test | Session | Status |
+|-------|-------------|-------|----------|------|---------|--------|
+| AC-36 | Full flow: authenticated request → 201 → note persisted in DB → retrievable via GET | E2E | FR-002 | `test_e2e_create_and_retrieve_note` | 8 | ⚪ |
+| AC-37 | Concurrent creates by same user do not corrupt state | E2E | NFR-001 | `test_e2e_concurrent_creates` | 8 | ⚪ |
+
+#### AC Summary Statistics
+
+| Session | AC Count | Status |
+|---------|----------|--------|
+| Session 1: HTTP plumbing | 2 (AC-33, AC-34) | 🟢 Complete |
+| Session 2: Request validation | 6 (AC-01 to AC-06) | 🟡 In Progress |
+| Session 3: Domain (VOs + Note aggregate) | 10 (AC-07 to AC-16) | ⚪ Planned |
+| Session 4: Domain service | 4 (AC-17 to AC-20) | ⚪ Planned |
+| Session 5: Persistence adapter | 4 (AC-21 to AC-24) | ⚪ Planned |
+| Session 6: Auth + authorization | 5 (AC-25 to AC-29) | ⚪ Planned |
+| Session 7: Response contract | 3 (AC-30 to AC-32) | ⚪ Planned |
+| Session 8: E2E integration | 2 (AC-36, AC-37) | ⚪ Planned |
+| Observability (spans sessions) | 1 (AC-35) | ⚪ Planned |
+| **Total for UC-01** | **37** | 2/37 (5%) |
+
+#### AC Usage Rules
+
+1. **Never write a test without an AC.** If you can't cite `AC-NN`, don't write the test — add the AC to this doc first.
+2. **Every AC must have exactly one test.** If a behavior needs two tests, split it into two ACs.
+3. **Update status as you go.** Start of cycle → 🟡 In Progress. Test passes green → 🟢 Verified. Test breaks → 🔴 Failing (fix immediately).
+4. **Commit messages cite AC IDs.** Example: `FEATURE-UC01-CREATE-NOTE: [AC-02, AC-03] request validation for title`
+5. **Deviations must be documented.** If an AC turns out to be wrong or infeasible, update this doc with a note explaining why, before removing/changing the AC.
+
+#### AC Deviations & Notes
+
+*None yet. Add entries as they arise during implementation.*
+
+---
+
 ## Preconditions
 
 - User is authenticated (valid JWT token)
