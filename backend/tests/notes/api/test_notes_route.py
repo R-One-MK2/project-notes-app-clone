@@ -34,6 +34,25 @@ Goal: Enforce structural validation via Pydantic. Reject malformed requests
   [ ] Cycle 12: Refactor — extract CreateNoteRequest to schemas.py
 
 -------------------------------------------------------------------------------
+
+SESSION 3 — Domain Layer (Value Objects + Aggregate)
+Goal: Build the domain layer in pure Python. No FastAPI, no Pydantic, no DB.
+      Business rules enforced by Value Objects and aggregate invariants.
+
+Cycles:
+  [ ] Cycle 13: Title rejects empty string                       → AC-07
+  [ ] Cycle 14: Title rejects whitespace-only string             → AC-08
+  [ ] Cycle 15: Title strips leading/trailing whitespace         → AC-10
+  [ ] Cycle 16: Title rejects string over 255 chars              → AC-09
+  [ ] Cycle 17: Title equality (VOs are equal if values are)     → (extra)
+  [ ] Cycle 18: Content rejects string over 1MB                  → AC-11
+  [ ] Cycle 19: Content accepts empty string                     → AC-12
+  [ ] Cycle 20: Note.create() generates unique note_id           → AC-13
+  [ ] Cycle 21: Note.create() sets created_at to now             → AC-14
+  [ ] Cycle 22: Note.create() sets updated_at == created_at      → AC-15
+  [ ] Cycle 23: Note.create() defaults to unpinned, not-deleted  → AC-16
+
+
 FUTURE SESSIONS (out of scope for now)
 
 Session 3 — Domain Layer (Value Objects, Note aggregate)   → AC-07..AC-16
