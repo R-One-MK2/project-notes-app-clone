@@ -25,12 +25,12 @@ SESSION 2 — HTTP Boundary Validation (IN PROGRESS)
 Goal: Enforce structural validation via Pydantic. Reject malformed requests
       with 422 before the domain is invoked.
 
-  [ ] Cycle 6:  Missing title returns 422                          → AC-02
-  [ ] Cycle 7:  Non-string title returns 422                       → AC-03
-  [ ] Cycle 8:  Missing folder_id returns 422                      → AC-04
-  [ ] Cycle 9:  Invalid UUID for folder_id returns 422             → AC-05
-  [ ] Cycle 10: Missing content is accepted (content optional)     → AC-06
-  [ ] Cycle 11: Valid request still returns 200 (regression)       → AC-01
+  [x] Cycle 6:  Missing title returns 422                          → AC-02
+  [x] Cycle 7:  Non-string title returns 422                       → AC-03
+  [x] Cycle 8:  Missing folder_id returns 422                      → AC-04
+  [x] Cycle 9:  Invalid UUID for folder_id returns 422             → AC-05
+  [x] Cycle 10: Missing content is accepted (content optional)     → AC-06
+  [x] Cycle 11: Valid request still returns 200 (regression)       → AC-01
   [ ] Cycle 12: Refactor — extract CreateNoteRequest to schemas.py
 
 -------------------------------------------------------------------------------
@@ -53,43 +53,35 @@ from fastapi.testclient import TestClient
 client = TestClient(app)
 
 
-# -----------------------------------------------------------------------------
+# ------------------------------------------------
 # Test fixtures / helpers
-# -----------------------------------------------------------------------------
+# ------------------------------------------------
 
 # A minimally valid payload used across happy-path and regression tests.
 # Session 2 introduces validation, so all tests must send a valid body now.
+
 VALID_PAYLOAD = {
     "title": "Grocery List",
     "content": "Milk, Eggs, Bread",
     "folder_id": "550e8400-e29b-41d4-a716-446655440000",
 }
 
-
-# -----------------------------------------------------------------------------
+# ------------------------------------------------
 # SESSION 1 — HTTP Plumbing
-# -----------------------------------------------------------------------------
+# ------------------------------------------------
 
 
-def test_post_notes_returns_200():
+def test_valid_request_returns_success():
     """
-    Route smoke test: POST /api/v1/notes with a valid payload returns 200.
+    AC-01: Valid, complete request returns 200 with {"status": "success"}.
 
-    Regression check — verifies the route wiring itself. Detailed happy-path
-    behaviour is covered by AC-01 (Cycle 11).
+    Regression test for the happy path. Guards against overzealous
+    validation that could reject legitimate requests.
+    Requirement: FR-002 — Create Note.
     """
     response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+
     assert response.status_code == 200
-
-
-def test_post_notes_success_status():
-    """
-    Route smoke test: response body is {"status": "success"}.
-
-    Regression check — verifies the placeholder response shape.
-    Will be replaced by NoteDTO in Session 7 (AC-31).
-    """
-    response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
     assert response.json() == {"status": "success"}
 
 
@@ -123,7 +115,88 @@ def test_post_notes_log_includes_method_and_path(caplog):
     assert "/api/v1/notes" in caplog.text
 
 
-# -----------------------------------------------------------------------------
+# ------------------------------------------------
 # SESSION 2 — HTTP Boundary Validation
 # (Tests will be added here one at a time, following RED → GREEN → REFACTOR)
-# -----------------------------------------------------------------------------
+# ------------------------------------------------
+def test_missing_title_returns_422():
+    """
+    AC-02: Missing title field returns 422.
+
+    Enforced at the HTTP boundary via Pydantic.
+    Requirement: FR-002 — title is required.
+    """
+    # Payload WITHOUT title
+    payload = {
+        "content": "some content",
+        "folder_id": "550e8400-e29b-41d4-a716-446655440000",
+    }
+
+    response = client.post("/api/v1/notes", json=payload)
+    assert response.status_code == 422
+
+
+def test_title_wrong_type_returns_422():
+    """
+    AC-03: Non-string title returns 422.
+
+    Enforced at the HTTP boundary via Pydantic.
+    Requirement: FR-002 — title must be a string.
+    """
+    payload = {
+        "title": 12345,  # ← integer, not a string
+        "content": "some content",
+        "folder_id": "550e8400-e29b-41d4-a716-446655440000",
+    }
+
+    response = client.post("/api/v1/notes", json=payload)
+    assert response.status_code == 422
+
+
+def test_missing_folder_id_returns_422():
+    """
+    AC-04: Missing folder_id returns 422.
+
+    Enforced at the HTTP boundary via Pydantic.
+    Requirement: FR-002 — folder_id required; FR-006 — every note belongs to a folder.
+    """
+
+    payload = {
+        "title": "sample title",
+        "content": "some content",
+    }
+
+    response = client.post("/api/v1/notes", json=payload)
+    assert response.status_code == 422
+
+
+def test_invalid_folder_id_returns_422():
+    """
+    AC-05: Malformed UUID folder_id returns 422.
+
+    Enforced at the HTTP boundary via Pydantic's UUID type.
+    Requirement: FR-002 — folder_id must be valid UUID.
+    Requirement: NFR-002 — reject malformed input at boundary.
+    """
+
+    payload = {"title": "sample title", "folder_id": "not-a-uuid"}
+
+    response = client.post("/api/v1/notes", json=payload)
+    assert response.status_code == 422
+
+
+def test_missing_content_is_optional_200():
+    """
+    AC-06: Missing content is accepted (content is optional).
+
+    Content is not required; it defaults to empty string.
+    Requirement: FR-002 — content is optional on note creation.
+    """
+    payload = {
+        "title": "sample title",
+        "folder_id": "550e8400-e29b-41d4-a716-446655440000",
+        # No content key
+    }
+
+    response = client.post("/api/v1/notes", json=payload)
+    assert response.status_code == 200

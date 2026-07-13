@@ -2,13 +2,15 @@ import logging
 
 from fastapi import APIRouter
 
+from app.notes.schemas import CreateNoteIn
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/notes", tags=["notes"])
 
 
 @router.post("")
-def create_note() -> dict:
+def create_note(req: CreateNoteIn) -> dict:
     """
     Create a new note.
     Currently a stub — returns success without persisting anything.
