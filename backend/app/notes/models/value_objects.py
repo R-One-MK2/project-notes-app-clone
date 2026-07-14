@@ -10,12 +10,15 @@ class Title:
     """
     A note's title. Non-empty string, max 255 chars, no leading/trailing whitespace."""
 
+    MAX_LENGTH = 255
+
     def __init__(self, value: str) -> None:
         # Raise error if no value
         stripped = value.strip()
         if not stripped:
             raise ValueError("Title cannot be empty")
-
+        if len(stripped) > self.MAX_LENGTH:
+            raise ValueError(f"Title exceeds {self.MAX_LENGTH} characters")
         self._value = stripped
 
     @property
