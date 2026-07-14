@@ -7,7 +7,7 @@ Goal: Value Objects are immutable, self-validating primitives.
 
 Cycles:
   [x] Cycle 13: Title rejects empty string                       → AC-07
-  [ ] Cycle 14: Title rejects whitespace-only string             → AC-08
+  [x] Cycle 14: Title rejects whitespace-only string             → AC-08
   [ ] Cycle 15: Title strips leading/trailing whitespace         → AC-10
   [ ] Cycle 16: Title rejects string over 255 chars              → AC-09
   [ ] Cycle 17: Title equality (VOs equal if values are)         → (extra)
@@ -40,3 +40,15 @@ def test_title_rejects_whitespace_only_string():
     """
     with pytest.raises(ValueError, match="empty"):
         Title("   ")
+
+
+def test_title_strips_leading_and_trailning_whitespace():
+    """
+    AC-10: Title normalizes whitespace at construction.
+
+    Leading and trailing whitespace is removed. Internal whitespace
+    is preserved (only the boundaries are stripped).
+    Requirement: FR-002 — title stored in canonical form.
+    """
+    title = Title(" hello world ")
+    assert title.value == "hello world"
