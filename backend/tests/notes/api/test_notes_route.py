@@ -31,7 +31,7 @@ Goal: Enforce structural validation via Pydantic. Reject malformed requests
   [x] Cycle 9:  Invalid UUID for folder_id returns 422             → AC-05
   [x] Cycle 10: Missing content is accepted (content optional)     → AC-06
   [x] Cycle 11: Valid request still returns 200 (regression)       → AC-01
-  [ ] Cycle 12: Refactor — extract CreateNoteRequest to schemas.py
+  [x] Cycle 12: Refactor — extract CreateNoteRequest to schemas.py
 
 -------------------------------------------------------------------------------
 
