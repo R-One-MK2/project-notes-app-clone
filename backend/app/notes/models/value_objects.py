@@ -12,7 +12,7 @@ class Title:
 
     def __init__(self, value: str) -> None:
         # Raise error if no value
-        if not value:
+        if not value.strip():
             raise ValueError("Title cannot be empty")
 
         self._value = value
