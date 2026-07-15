@@ -24,3 +24,37 @@ class Title:
     @property
     def value(self) -> str:
         return self._value
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Title):
+            return NotImplemented
+        return self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+
+class Content:
+    """
+    A note's body content. Empty allowed, max 1 MB
+    """
+
+    MAX_BYTES = 1_048_576  # 1 MB in bytes
+
+    def __init__(self, value) -> None:
+
+        if len(value.encode("utf-8")) > self.MAX_BYTES:
+            raise ValueError(f"Content exceeds {self.MAX_BYTES} bytes (1MB)")
+        self._value = value
+
+    @property
+    def value(self):
+        return self._value
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Content):
+            return NotImplemented
+        return self.value == other.value
+
+    def __hash__(self) -> int:
+        return hash(self.value)
