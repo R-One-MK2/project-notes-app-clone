@@ -24,8 +24,8 @@ from app.notes.models import Content, Note, Title
 
 USER_ID = uuid4()
 FOLDER_ID = uuid4()
-VALID_TITLE = Title("Grocery List")
-VALID_CONTENT = Content("Milk, Eggs, Bread")
+VALID_TITLE = "Grocery List"
+VALID_CONTENT = "Milk, Eggs, Bread"
 
 
 def test_note_create_generates_unique_note_id():
@@ -98,8 +98,8 @@ def test_note_create_wraps_strings_in_value_objects():
     assert isinstance(note.title, Title)
     assert isinstance(note.content, Content)
 
-    assert note.title.value == VALID_TITLE.value
-    assert note.content.value == VALID_CONTENT.value
+    assert note.title.value == VALID_TITLE
+    assert note.content.value == VALID_CONTENT
 
 
 def test_notes_with_same_id_are_equal():

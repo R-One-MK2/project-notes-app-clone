@@ -21,6 +21,7 @@ from app.notes.models.value_objects import Content, Title
 
 
 class Note:
+    """Aggregate root for a user's note. Owns Title and Content VOs."""
 
     def __init__(
         self,
@@ -44,19 +45,19 @@ class Note:
         self._created_at = created_at
         self._updated_at = updated_at
 
-        self._is_pinned = False
-        self._is_deleted = False
+        self._is_pinned = is_pinned
+        self._is_deleted = is_deleted
 
     @classmethod
-    def create(cls, user_id: UUID, folder_id: UUID, title: Title, content: Content):
-        now = datetime.now()
+    def create(cls, user_id: UUID, folder_id: UUID, title: str, content: str):
         """Factory: create a brand-new note with generated ID and timestamps."""
+        now = datetime.now()
         return cls(
             note_id=uuid4(),
             user_id=user_id,
             folder_id=folder_id,
-            title=title,
-            content=content,
+            title=Title(title),
+            content=Content(content),
             created_at=now,
             updated_at=now,
             is_deleted=False,
@@ -65,39 +66,39 @@ class Note:
 
     # READ ONLY ACCESSORS
     @property
-    def note_id(self):
+    def note_id(self) -> UUID:
         return self._note_id
 
     @property
-    def user_id(self):
+    def user_id(self) -> UUID:
         return self._user_id
 
     @property
-    def folder_id(self):
+    def folder_id(self) -> UUID:
         return self._folder_id
 
     @property
-    def title(self):
+    def title(self) -> Title:
         return self._title
 
     @property
-    def content(self):
+    def content(self) -> Content:
         return self._content
 
     @property
-    def created_at(self):
+    def created_at(self) -> datetime:
         return self._created_at
 
     @property
-    def updated_at(self):
+    def updated_at(self) -> datetime:
         return self._updated_at
 
     @property
-    def is_pinned(self):
+    def is_pinned(self) -> bool:
         return self._is_pinned
 
     @property
-    def is_deleted(self):
+    def is_deleted(self) -> bool:
         return self._is_deleted
 
     # ENTITY EQUALITY
