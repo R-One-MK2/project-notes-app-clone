@@ -30,7 +30,7 @@ def test_find_by_id_return_folder_if_exists():
 
     assert result is not None
     assert result.folder_id == folder_id
-    assert result._user_id == user_id
+    assert result.user_id == user_id
 
 
 def test_find_by_id_return_none_if_not_exist():

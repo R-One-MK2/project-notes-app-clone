@@ -21,6 +21,10 @@ class Folder:
     def user_id(self) -> UUID:
         return self._user_id
 
+    def belongs_to(self, user_id: UUID) -> bool:
+        """Domain method: does this folder belong to the given user?"""
+        return self.user_id == user_id
+
     def __eq__(self, other: object) -> bool:
         """Entity equality: same folder_id → same folder."""
         if not isinstance(other, Folder):
