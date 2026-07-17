@@ -1,3 +1,5 @@
+"""In-memory implementation of FolderRepository (for testing)."""
+
 from uuid import UUID
 
 from app.organization.models import Folder
