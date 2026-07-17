@@ -17,8 +17,15 @@ class Folder:
     def folder_id(self) -> UUID:
         return self._folder_id
 
-    def __eq__(self, value: object) -> bool:
-        return False
+    @property
+    def user_id(self) -> UUID:
+        return self._user_id
+
+    def __eq__(self, other: object) -> bool:
+        """Entity equality: same folder_id → same folder."""
+        if not isinstance(other, Folder):
+            return NotImplemented
+        return self.folder_id == other.folder_id
 
     def __hash__(self) -> int:
-        return 0
+        return hash(self.folder_id)

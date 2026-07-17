@@ -6,7 +6,7 @@ Goal: Fake FolderRepository for testing service authorization checks.
 
 Cycles:
   [x] Cycle 28: find_by_id() returns folder if exists
-  [] Cycle 29: find_by_id() returns None if not exists
+  [x] Cycle 29: find_by_id() returns None if not exists
 """
 
 from uuid import uuid4
@@ -31,3 +31,15 @@ def test_find_by_id_return_folder_if_exists():
     assert result is not None
     assert result.folder_id == folder_id
     assert result._user_id == user_id
+
+
+def test_find_by_id_return_none_if_not_exist():
+    """
+    Repository contract: find_by_id returns None for unknown IDs.
+    """
+
+    repo = InMemoryFolderRepository()
+    folder_id = uuid4()
+    result = repo.find_by_id(folder_id)
+
+    assert result is None
