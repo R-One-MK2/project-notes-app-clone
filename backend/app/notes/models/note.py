@@ -101,6 +101,10 @@ class Note:
     def is_deleted(self) -> bool:
         return self._is_deleted
 
+    def belongs_to(self, user_id: UUID) -> bool:
+        """Domain method: does this note belong to the given user?"""
+        return self.user_id == user_id
+
     # ENTITY EQUALITY
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Note):

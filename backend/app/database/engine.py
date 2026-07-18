@@ -30,7 +30,7 @@ def create_tables() -> None:
 
     # Import ORM models to register them with Base.metadata.
     # These imports look unused but are essential for create_all() to work.
-    # (Will be uncommented in Phase 2 when we build the ORM models.)
-    # from app.notes.repositories.orm import NoteORM  # noqa: F401
-    # from app.organization.repositories.orm import FolderORM  # noqa: F401
+    from app.notes.repositories.orm import NoteORM  # noqa: F401
+    from app.organization.repositories.orm import FolderORM  # noqa: F401
+
     Base.metadata.create_all(engine)
