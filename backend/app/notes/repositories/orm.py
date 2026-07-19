@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.app.database.base import Base
+from app.database.base import Base
 
 
 class NoteORM(Base):
