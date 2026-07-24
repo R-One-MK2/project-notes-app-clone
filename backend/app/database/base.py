@@ -11,4 +11,4 @@ class Base(DeclarativeBase):
     Base collects table metadata so create_all() can create all tables
     """
 
-    pass
+    pass  # noqa

@@ -61,7 +61,7 @@ def test_find_by_id_returns_none_for_unknown_id():
     assert retrieved is None
 
 
-def test_is_idempotent():
+def test_save_is_idempotent():
     """
     Repository contract: saving the same note twice does not duplicate.
 
