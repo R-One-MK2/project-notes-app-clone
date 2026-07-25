@@ -59,7 +59,7 @@ Session 8 — E2E Integration Tests                          → AC-36..AC-37
 """
 
 import logging
-from uuid import UUID
+from uuid import UUID, uuid4
 
 # Import ORM models to register with Base.metadata
 from app.notes.repositories.orm import NoteORM  # noqa: F401
@@ -96,7 +96,7 @@ def test_valid_request_returns_success(client):
     """
     response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
 
-    assert response.status_code == 200
+    assert response.status_code == 201
     body = response.json()
     assert "note_id" in body
 
@@ -201,7 +201,7 @@ def test_invalid_folder_id_returns_422(client):
     assert response.status_code == 422
 
 
-def test_missing_content_is_optional_200(client):
+def test_missing_content_is_optional_201(client):
     """
     AC-06: Missing content is accepted (content is optional).
 
@@ -215,4 +215,76 @@ def test_missing_content_is_optional_200(client):
     }
 
     response = client.post("/api/v1/notes", json=payload)
+    assert response.status_code == 201
+
+
+# ------------------------------------------------
+# UC-002 — GET /api/v1/notes/{note_id}
+# ------------------------------------------------
+
+
+def test_get_existing_note_returns_dto(client):
+    """
+    UC-002 AC-01: GET existing note returns 200 with NoteDTO.
+    Requirement: FR-003 — retrieve a note.
+    """
+    create_response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    note_id = create_response.json()["note_id"]
+
+    response = client.get(f"/api/v1/notes/{note_id}")
+
     assert response.status_code == 200
+
+    body = response.json()
+    assert body["note_id"] == note_id
+    assert body["title"] == VALID_PAYLOAD["title"]
+    assert body["content"] == VALID_PAYLOAD["content"]
+
+
+def test_get_missing_note_returns_404(client):
+    """
+    UC-002 AC-03: GET nonexistent note returns 404.
+    Requirement: FR-003 — cannot view a note that doesn't exist.
+    """
+    response = client.get(f"/api/v1/notes/{uuid4()}")
+    assert response.status_code == 404
+
+
+def test_get_malformed_uuid_returns_422(client):
+    """
+    UC-002 AC-02: GET with malformed UUID in path returns 422.
+    Enforced by FastAPI path parameter parsing.
+    Requirement: FR-003 — note_id must be valid UUID.
+    """
+    response = client.get("/api/v1/notes/not-a-uuid")
+    assert response.status_code == 422
+
+
+def test_get_note_response_shape(client):
+    """AC-04: Response body contains all seven public NoteDTO fields."""
+
+    create_response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    note_id = create_response.json()["note_id"]
+
+    response = client.get(f"/api/v1/notes/{note_id}")
+    body = response.json()
+
+    assert "note_id" in body
+    assert "title" in body
+    assert "content" in body
+    assert "folder_id" in body
+    assert "is_pinned" in body
+    assert "created_at" in body
+    assert "updated_at" in body
+
+
+def test_get_note_hides_internal_fields(client):
+    """AC-05: Response never exposes user_id or is_deleted."""
+    create_response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    note_id = create_response.json()["note_id"]
+
+    response = client.get(f"/api/v1/notes/{note_id}")
+    body = response.json()
+
+    assert "user_id" not in body
+    assert "is_deleted" not in body
