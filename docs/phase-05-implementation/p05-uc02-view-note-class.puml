@@ -1,0 +1,126 @@
+@startuml UC002_ViewNote_Class
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classFontStyle bold
+
+' Legend: green background = NEW in UC-002, plain = existing/reused
+
+package "notes.schemas" #E7F4EA {
+  class NoteDTO <<Pydantic>> #C8E6C9 {
+    + note_id: UUID
+    + title: str
+    + content: str
+    + folder_id: UUID
+    + is_pinned: bool
+    + created_at: datetime
+    + updated_at: datetime
+    --
+    Canonical read shape.
+    Reused by UC-003 (Edit) and future
+    list/search endpoints.
+    --
+    HIDDEN: user_id, is_deleted
+  }
+
+  class CreateNoteIn <<Pydantic>> {
+    (from UC-001, unchanged)
+  }
+}
+
+package "notes.api.v1" #E6F0FB {
+  class Router {
+    + create_note(...) : dict\n  <<UC-001, unchanged>>
+    + get_note(note_id: UUID,\n  service: NoteService,\n  user_id: UUID) : NoteDTO  <<NEW>>
+  }
+}
+
+package "notes.services" #E7F4EA {
+  class NoteService {
+    + create_note(...) : Note\n  <<UC-001, unchanged>>
+    + get_note(user_id: UUID,\n  note_id: UUID) : Note  <<NEW>>
+  }
+
+  class NoteNotFoundError <<Exception>> #C8E6C9 {
+    Raised for THREE distinct cases,
+    all returning HTTP 404:
+    ------
+    1. Note doesn't exist
+    2. Note belongs to another user
+    3. Note is soft-deleted
+    ------
+    Info-hiding: client cannot
+    distinguish between the three.
+  }
+
+  class FolderNotFoundError <<Exception>> {
+    (from UC-001, unchanged)
+  }
+
+  class UnauthorizedFolderAccessError <<Exception>> {
+    (from UC-001, unchanged)
+  }
+}
+
+package "notes.models" {
+  class Note <<Aggregate Root>> {
+    - _note_id: UUID
+    - _user_id: UUID
+    - _title: Title
+    - _content: Content
+    - _folder_id: UUID
+    - _is_pinned: bool
+    - _is_deleted: bool
+    - _created_at: datetime
+    - _updated_at: datetime
+    --
+    + belongs_to(user_id) : bool  <<UC-001>>
+    --
+    Read-only in UC-002.
+    Mutators added in UC-003.
+  }
+
+  class Title <<Value Object>> {
+    (from UC-001, unchanged)
+  }
+
+  class Content <<Value Object>> {
+    (from UC-001, unchanged)
+  }
+}
+
+package "notes.repositories" {
+  interface NoteRepository <<Protocol>> {
+    + save(note)  <<UC-001>>
+    + find_by_id(note_id) : Note | None\n  <<UC-001, REUSED>>
+  }
+
+  class SQLAlchemyNoteRepository {
+    (from UC-001, unchanged)
+  }
+
+  class InMemoryNoteRepository {
+    (from UC-001, unchanged)
+  }
+}
+
+' Relationships
+Router ..> NoteService : depends on
+Router ..> NoteDTO : returns
+NoteService ..> NoteRepository : depends on
+NoteService ..> Note : returns
+NoteService ..> NoteNotFoundError : raises
+NoteRepository <|.. SQLAlchemyNoteRepository
+NoteRepository <|.. InMemoryNoteRepository
+
+note bottom of NoteDTO
+  Fields EXPOSED to clients:
+    Public identity + editable state +
+    ordering metadata
+  Fields HIDDEN from clients:
+    Internal ownership (user_id) —
+    from JWT anyway, no need to leak
+    Soft-delete flag (is_deleted) —
+    trashed notes shouldn't be visible at all
+end note
+
+@enduml

@@ -1,0 +1,64 @@
+@startuml UC002_ViewNote_Sequence
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam sequenceMessageAlign center
+
+' Color palette: boundary=blue, service=green, domain=amber, repo=lavender, infra=gray
+actor "User" as U
+participant "«boundary»\nHTTP Route\n(router.py)" as API #E6F0FB
+participant "«service»\nNoteService" as SERV #E7F4EA
+participant "«repository»\nSQLAlchemyNoteRepository" as REPO #EEE7F7
+database "SQLite / PostgreSQL\n(notes table)" as DB #ECECEC
+
+== Phase 1: Request arrives ==
+
+U -> API : 1.1 GET /api/v1/notes/{note_id}
+note over API
+  FastAPI parses note_id as UUID.
+  If malformed → 422 (before service is called).
+end note
+
+API -> API : 1.2 Resolve dependencies:\n  session, user_id (placeholder),\n  NoteService
+
+== Phase 2: Service loads the note ==
+
+API -> SERV : 2.1 get_note(user_id, note_id)
+SERV -> REPO : 2.2 find_by_id(note_id)
+REPO -> DB : 2.3 SELECT * FROM notes\n     WHERE note_id = ?
+DB --> REPO : row | None
+REPO --> SERV : Note | None
+
+== Phase 3: Info-hiding authorization ==
+
+alt Note is None (doesn't exist)
+  SERV --> API : raise NoteNotFoundError
+  API --> U : 3.1' 404 "Note not found"
+else Note.user_id != requesting user_id
+  SERV --> API : raise NoteNotFoundError
+  API --> U : 3.1'' 404 "Note not found"
+  note right
+    Same response as "not found"
+    to prevent enumeration attacks
+  end note
+else Note.is_deleted is True (trashed)
+  SERV --> API : raise NoteNotFoundError
+  API --> U : 3.1''' 404 "Note not found"
+else Happy path — note found, owned, not deleted
+  SERV --> API : 3.2 Note (aggregate)
+end
+
+== Phase 4: Convert & respond ==
+
+API -> API : 4.1 Convert Note → NoteDTO\n  (unwrap VOs, drop user_id & is_deleted)
+API --> U : 4.2 200 OK + NoteDTO
+
+note across
+  Latency budget: < 100ms
+    - Route dispatch + UUID validation: ~5ms
+    - Repo lookup (indexed PK): ~30ms
+    - Authorization checks: ~1ms
+    - DTO conversion: ~1ms
+    Total backend: ~37ms ✓
+end note
+
+@enduml
