@@ -1,4 +1,4 @@
-# UC-001 - Create Note (Email + Password)
+# UC-001 - Create Note 
 
 > **Use-case specification.** Prose companion to `p5-UC-001-create-note-sequence.puml` / `p5-UC-001-create-note-class.puml`. **Design specification** (code will be source of truth post-implementation).
 
