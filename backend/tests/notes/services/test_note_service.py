@@ -24,6 +24,7 @@ from app.notes.services import (
     NoteService,
     UnauthorizedFolderAccessError,
 )
+from app.notes.services.note_service import NoteNotFoundError
 from app.organization.models import Folder
 from app.organization.repositories import InMemoryFolderRepository
 
@@ -124,3 +125,37 @@ def test_create_note_raises_when_folder_belongs_to_different_user():
 
     with pytest.raises(UnauthorizedFolderAccessError, match="does not belong to user"):
         note_service.create_note(USER_ID, FOLDER_ID, TITLE, CONTENT)
+
+
+# ============================================================
+# UC-002 Session 1 — get_note()
+# ============================================================
+
+
+def test_get_note_returns_note_when_exists():
+    """AC-06: get_note returns the Note aggregate on success."""
+    service = make_service_with_folder()
+
+    created = service.create_note(USER_ID, FOLDER_ID, TITLE, CONTENT)
+    retrieved = service.get_note(USER_ID, created.note_id)
+
+    assert created == retrieved
+
+
+def test_get_note_raises_when_missing():
+    """AC-07: unknown note_id → NoteNotFoundError."""
+
+    service = make_service_with_folder()
+
+    with pytest.raises(NoteNotFoundError, match="not found"):
+        service.get_note(USER_ID, uuid4())
+
+
+def test_get_note_raises_when_wrong_user():
+    """AC-08: note owned by another user → NoteNotFoundError (info-hiding)."""
+    service = make_service_with_folder(OTHER_USER_ID)
+
+    other_note = service.create_note(OTHER_USER_ID, FOLDER_ID, TITLE, CONTENT)
+
+    with pytest.raises(NoteNotFoundError, match="not found"):
+        service.get_note(USER_ID, other_note.note_id)
