@@ -1,0 +1,121 @@
+@startuml UC001_CreateNote_Class
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+' Color palette
+' boundary=blue, service=green, domain=amber, repo/port/adapter=lavender, infra=gray
+
+rectangle "Frontend (Next.js)" as FE {
+  class "«boundary»\nNoteEditor\n(components/note-editor.tsx)" as EDITOR #E6F0FB {
+    +title: str
+    +content: str
+    +folder_id: UUID
+    +onChange(title, content)
+    +onSave()
+  }
+  class "«boundary»\nNoteForm\n(components/note-form.tsx)" as FORM #E6F0FB {
+    +submit(title, content, folder_id): Promise
+  }
+}
+
+rectangle "Application Layer (FastAPI)" as APP {
+  class "«boundary»\nNotes API\n(routes/notes.py)" as ROUTER #E6F0FB {
+    +create_note(req: CreateNoteRequest): NoteDTO
+  }
+  class "«boundary»\nRequest Validation\n(schemas/note_schemas.py)" as SCHEMAS #E6F0FB {
+    +CreateNoteRequest
+    +NoteDTO
+  }
+}
+
+rectangle "Domain Layer (Business Logic)" as DOMAIN {
+  class "«service»\nNoteService\n(services/note_service.py)" as NOTESERV #E7F4EA {
+    +create_note(user_id, folder_id, title, content): Note
+  }
+  class "«service»\nFolderService\n(services/folder_service.py)" as FOLDERSERV #E7F4EA {
+    +get_folder(folder_id): Folder
+  }
+  class "«root entity»\nNote\n(models/note.py)" as NOTE #FBF2D9 {
+    -note_id: UUID
+    -user_id: UUID
+    -folder_id: UUID
+    -title: str
+    -content: str
+    -is_pinned: bool
+    -is_deleted: bool
+    -created_at: datetime
+    -updated_at: datetime
+  }
+  class "«root entity»\nFolder\n(models/folder.py)" as FOLDER #FBF2D9 {
+    -folder_id: UUID
+    -user_id: UUID
+    -parent_folder_id: UUID?
+    -name: str
+  }
+  class "«value object»\nTitle\n(value_objects.py)" as TITLE #FBF2D9 {
+    +Title(value: str)
+    «validate: required, max 255»
+  }
+  class "«value object»\nContent\n(value_objects.py)" as CONTENT #FBF2D9 {
+    +Content(value: str)
+    «validate: max 1MB»
+  }
+}
+
+rectangle "Infrastructure Layer (Persistence)" as INFRA {
+  class "«repository»\nNoteRepository\n(repositories/note_repo.py)" as NOTEREPO #EEE7F7 {
+    +save(note: Note): void
+  }
+  class "«repository»\nFolderRepository\n(repositories/folder_repo.py)" as FOLDERREPO #EEE7F7 {
+    +find_by_id(folder_id): Folder?
+  }
+  class "«adapter»\nSQLAlchemy_NoteRepository" as SQLA_NOTE #EEE7F7
+  class "«adapter»\nSQLAlchemy_FolderRepository" as SQLA_FOLDER #EEE7F7
+}
+
+rectangle "Database" as DB {
+  class "«infra»\nPostgreSQL\n(notes table)" as PGOTES #ECECEC
+  class "«infra»\nPostgreSQL\n(folders table)" as PGFOLDER #ECECEC
+}
+
+' --- Relationships ---
+FORM  ..> ROUTER : POST /notes (CreateNoteRequest)
+ROUTER  --> SCHEMAS : validates body → CreateNoteRequest
+ROUTER  --> NOTESERV : create_note(user_id, folder_id, title, content)
+
+NOTESERV  --> FOLDERSERV : get_folder(folder_id) [verify ownership]
+NOTESERV  ..> NOTE : creates new instance
+NOTESERV  --> NOTEREPO : save(note)
+
+FOLDERSERV  --> FOLDERREPO : find_by_id(folder_id)
+FOLDERREPO <|-- SQLA_FOLDER : implements
+SQLA_FOLDER --> PGFOLDER : SELECT
+
+NOTE  ..> TITLE : title (validated)
+NOTE  ..> CONTENT : content (validated)
+
+NOTEREPO <|-- SQLA_NOTE : implements
+SQLA_NOTE --> PGOTES : INSERT
+
+EDITOR --> FORM : user fills form
+FORM --> ROUTER : sends request
+ROUTER ..> SCHEMAS : response → NoteDTO
+
+note right of NOTESERV
+  Orchestrates: verify folder exists,
+  create Note aggregate, persist
+end note
+
+note right of NOTE
+  Aggregate root; encapsulates
+  title + content as value objects
+end note
+
+note right of SQLA_NOTE
+  Concrete adapter; converts
+  domain Note → SQL INSERT
+end note
+
+@enduml

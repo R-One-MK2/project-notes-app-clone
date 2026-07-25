@@ -1,0 +1,92 @@
+@startuml UC001_CreateNote_Sequence
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+' Color palette: boundary=blue, service=green, domain=amber, repo=lavender, infra=gray
+actor "User" as U
+participant "«boundary»\nNoteEditor\n(note-editor.tsx)" as EDITOR #E6F0FB
+participant "«boundary»\nNotes API (router.py)" as API #E6F0FB
+participant "«service»\nNoteService" as NOTESERV #E7F4EA
+participant "«service»\nFolderService" as FOLDERSERV #E7F4EA
+participant "«repository»\nNoteRepository" as NOTEREPO #EEE7F7
+database "PostgreSQL (notes)" as PGNOTES #ECECEC
+database "PostgreSQL (folders)" as PGFOLDERS #ECECEC
+
+== Phase 1: User Input ==
+U    -> EDITOR : 1.1 Enter title + content, click "Save"
+EDITOR -> API : 1.2 POST /api/notes\n{title, content, folder_id, JWT}
+note over API : CreateNoteRequest validation (Pydantic)\n- title: required, max 255\n- content: optional, max 1MB\n- folder_id: required UUID\nIf invalid -> 422 Bad Request
+
+== Phase 2: Authentication & Authorization ==
+API  -> NOTESERV : 1.3 create_note(user_id, folder_id, title, content)\nNote: user_id extracted from verified JWT
+
+== Phase 3: Verify Folder Ownership ==
+NOTESERV -> FOLDERSERV : 2.1 get_folder(folder_id)
+FOLDERSERV -> NOTEREPO : 2.2 find_by_id(folder_id)\nNote: borrows NoteRepository for query, or uses FolderRepository
+alt Folder exists & belongs to user
+  NOTEREPO -> PGFOLDERS : 2.3 SELECT folder WHERE folder_id = ? AND user_id = ?
+  PGFOLDERS --> FOLDERSERV : Folder
+  FOLDERSERV --> NOTESERV : Folder
+else Folder not found or unauthorized
+  PGFOLDERS --> FOLDERSERV : None
+  FOLDERSERV --> NOTESERV : raise FolderNotFound
+  NOTESERV --> API : FolderNotFound Exception
+  API --> EDITOR : 4.1 404 "Folder not found"
+  EDITOR --> U : Error message
+end
+
+== Phase 4: Create Note Aggregate ==
+NOTESERV -> NOTESERV : 3.1 Create Note(note_id=UUID(), user_id, folder_id,\ntitle=Title(title), content=Content(content),\nis_pinned=false, is_deleted=false, created_at=now(), updated_at=now())
+note over NOTESERV
+  Title & Content are value objects (validated during construction).
+  If title is empty -> ValueError raised, caught by API as 422.
+end note
+
+== Phase 5: Persist to Database ==
+NOTESERV -> NOTEREPO : 3.2 save(note)
+note over NOTEREPO
+  Repository interface; NoteService does not know about SQL.
+end note
+NOTEREPO -> PGNOTES : 3.3 INSERT INTO notes\n(note_id, user_id, folder_id, title, content, is_pinned, is_deleted, created_at, updated_at)\nVALUES (?, ?, ?, ?, ?, false, false, ?, ?)
+alt INSERT succeeds
+  PGNOTES --> NOTEREPO : Success (ACID transaction)
+  NOTEREPO --> NOTESERV : (void)
+  NOTESERV --> API : Note
+else Database error (connection lost, constraint violation)
+  PGNOTES --> NOTEREPO : Exception
+  NOTEREPO --> NOTESERV : Exception
+  NOTESERV --> API : raise PersistenceError
+  API --> EDITOR : 4.2 500 "Failed to create note"
+  EDITOR --> U : Error message, user retries
+end
+
+== Phase 6: Return Response ==
+alt Success
+  API -> API : 3.4 Convert Note → NoteDTO\n{note_id, title, content, folder_id, is_pinned, created_at, updated_at}
+  API --> EDITOR : 4.1 200 OK\n{note_id, title, content, ...}
+  note over API
+    Response includes note_id so frontend can reference it in subsequent edits (PUT /api/notes/{note_id}).
+    No password fields, no internal timestamps, clean DTO boundary.
+  end note
+else Authorization failed (JWT expired/invalid)
+  EDITOR --> API : 1.2' POST with invalid JWT
+  API --> EDITOR : 4.1' 401 Unauthorized
+  EDITOR --> U : Redirect to login
+end
+
+== Phase 7: Frontend Update ==
+EDITOR -> EDITOR : 5.1 Receive {note_id, created_at, ...}
+EDITOR --> EDITOR : 5.2 Update state: note_id (now editable at /api/notes/{note_id}),\nShow "Saved" indicator
+EDITOR --> U : 5.3 Note appears in sidebar list,\nEditor shows success
+
+note across
+  Latency target: < 200ms (API) from 1.2 to 4.1.
+  - 1.3-1.4: Auth (JWT decode) ~5ms
+  - 2.1-2.3: Folder lookup ~30ms
+  - 3.1: Aggregate creation ~1ms
+  - 3.2-3.3: Database INSERT ~50ms
+  - 3.4: DTO conversion ~1ms
+  - Total backend: ~87ms ✓
+end note
+
+@enduml
