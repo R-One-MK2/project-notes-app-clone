@@ -17,17 +17,6 @@ class UnauthorizedFolderAccessError(Exception):
     """Raised when the folder exists but does not belong to the user."""
 
 
-class NoteNotFoundError(Exception):
-    """
-    Raised when a note cannot be retrieved.
-
-    Used uniformly for three distinct cases (info-hiding):
-    - Note doesn't exist
-    - Note belongs to a different user
-    - Note is soft-deleted
-    """
-
-
 class NoteService:
     """
     Orchestrates note-related business logic.
@@ -44,7 +33,7 @@ class NoteService:
 
     def create_note(
         self, user_id: UUID, folder_id: UUID, title: str, content: str
-    ) -> Note:
+    ) -> Note | None:
         """
         Create a new note in the given folder.
 
@@ -71,27 +60,4 @@ class NoteService:
 
         # persist the note
         self._note_repo.save(note)
-        return note
-
-    def get_note(self, user_id: UUID, note_id: UUID):
-        """
-        Retrieve a note by ID, enforcing ownership and non-deletion.
-
-        Raises:
-            NoteNotFoundError: if the note doesn't exist, belongs to
-                another user, or is soft-deleted. Same exception across
-                all three cases for info-hiding.
-        """
-
-        note = self._note_repo.find_by_id(note_id)
-
-        if note is None:
-            raise NoteNotFoundError(f"Note {note_id} not found!")
-
-        if note.user_id != user_id:
-            raise NoteNotFoundError(f"Note {note_id} not found!")
-
-        if note.is_deleted:
-            raise NoteNotFoundError(f"Note {note_id} not found!")
-
         return note
