@@ -24,8 +24,9 @@ API -> API : 1.2 Resolve dependencies:\n  session, user_id (placeholder),\n  Not
 
 API -> SERV : 2.1 get_note(user_id, note_id)
 SERV -> REPO : 2.2 find_by_id(note_id)
-REPO -> DB : 2.3 SELECT * FROM notes\n     WHERE note_id = ?
-DB --> REPO : row | None
+REPO -> DB : 2.3 session.get(NoteORM, note_id)\n     (SELECT by primary key)
+DB --> REPO : NoteORM | None
+REPO -> REPO : 2.4 note_from_orm(orm)\n  (skipped if None)
 REPO --> SERV : Note | None
 
 == Phase 3: Info-hiding authorization ==

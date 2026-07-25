@@ -31,6 +31,9 @@ package "notes.api.v1" #E6F0FB {
   class Router {
     + create_note(...) : dict\n  <<UC-001, unchanged>>
     + get_note(note_id: UUID,\n  service: NoteService,\n  user_id: UUID) : NoteDTO  <<NEW>>
+    --
+    - get_note_service(session) : NoteService\n  <<DI factory>>
+    - get_current_user_id() : UUID\n  <<placeholder until Session 6 auth>>
   }
 }
 
@@ -73,10 +76,17 @@ package "notes.models" {
     - _created_at: datetime
     - _updated_at: datetime
     --
+    + note_id / user_id / folder_id : UUID  <<property>>
+    + title : Title  <<property>>
+    + content : Content  <<property>>
+    + created_at / updated_at : datetime  <<property>>
+    + is_pinned / is_deleted : bool  <<property>>
     + belongs_to(user_id) : bool  <<UC-001>>
     --
     Read-only in UC-002.
     Mutators added in UC-003.
+    get_note() checks ownership via
+    user_id property (direct compare).
   }
 
   class Title <<Value Object>> {
@@ -95,7 +105,12 @@ package "notes.repositories" {
   }
 
   class SQLAlchemyNoteRepository {
-    (from UC-001, unchanged)
+    + save(note)  <<UC-001>>
+    + find_by_id(note_id) : Note | None
+    --
+    find_by_id:
+    session.get(NoteORM, note_id)
+    → note_from_orm(orm) mapper
   }
 
   class InMemoryNoteRepository {
@@ -106,6 +121,7 @@ package "notes.repositories" {
 ' Relationships
 Router ..> NoteService : depends on
 Router ..> NoteDTO : returns
+Router ..> NoteNotFoundError : handles → 404
 NoteService ..> NoteRepository : depends on
 NoteService ..> Note : returns
 NoteService ..> NoteNotFoundError : raises
