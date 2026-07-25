@@ -1,10 +1,10 @@
-# UC-001 - Create Note 
+# UC-01 - Create Note 
 
-> **Use-case specification.** Prose companion to `p5-UC-001-create-note-sequence.puml` / `p5-UC-001-create-note-class.puml`. **Design specification** (code will be source of truth post-implementation).
+> **Use-case specification.** Prose companion to `p05-uc01-create-note-sequence.puml` / `p05-uc01-create-note-class.puml`. **Design specification** (code will be source of truth post-implementation).
 
 | Field | Value |
 |-------|-------|
-| **Use Case ID** | UC-001 |
+| **Use Case ID** | UC-01 |
 | **Bounded Context** | «Notes Domain» |
 | **Primary Actor** | Authenticated User |
 | **Secondary Actors** | - |
@@ -448,9 +448,10 @@ note = Note(..., title=Title(user_input_title), ...)  # Validates during constru
 
 ## Related Use Cases
 
-- **UC-002:** Edit Note with Auto-Save (reuses `PUT /api/notes/{note_id}` from step 7)
-- **UC-004:** Delete Note (soft delete via `DELETE /api/notes/{note_id}`)
-- **UC-006:** Organize Folders (move note between folders)
+- **UC-02:** View Note (opens the created note via `GET /api/notes/{note_id}`)
+- **UC-03:** Edit Note with Auto-Save (reuses `PUT /api/notes/{note_id}` from step 7)
+- **UC-05:** Delete Note (soft delete via `DELETE /api/notes/{note_id}`)
+- **UC-06:** Organize Folders (move note between folders)
 
 ---
 

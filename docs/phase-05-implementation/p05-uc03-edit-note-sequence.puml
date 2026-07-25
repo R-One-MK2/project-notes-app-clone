@@ -1,0 +1,113 @@
+@startuml UC003_EditNote_Sequence
+!theme plain
+skinparam backgroundColor #FEFEFE
+
+' Color palette: boundary=blue, service=green, domain=amber, repo=lavender, infra=gray
+actor "User" as U
+participant "«boundary»\nNoteEditor\n(note-editor.tsx)" as EDITOR #E6F0FB
+participant "«boundary»\nNotes API (router.py)" as API #E6F0FB
+participant "«service»\nNoteService" as NOTESERV #E7F4EA
+participant "«root entity»\nNote (aggregate)" as NOTE #FBF2D9
+participant "«repository»\nNoteRepository" as NOTEREPO #EEE7F7
+database "PostgreSQL (notes)" as PGNOTES #ECECEC
+
+== Phase 1: Open Note (UC-02, FR-003) ==
+U      -> EDITOR : 1.1 Click note in sidebar
+EDITOR -> API : 1.2 GET /api/v1/notes/{note_id}\n(JWT)
+API    -> NOTESERV : 1.3 get_note(user_id, note_id)\nNote: user_id extracted from verified JWT
+NOTESERV -> NOTEREPO : 1.4 find_by_id(note_id)
+NOTEREPO -> PGNOTES : 1.5 SELECT note WHERE note_id = ?
+alt Note exists, belongs to user, not deleted
+  PGNOTES --> NOTESERV : Note
+  NOTESERV --> API : Note
+  API --> EDITOR : 1.6 200 OK + NoteDTO
+  EDITOR --> U : Editor shows title, content,\ncreated_at / updated_at metadata
+else Not found OR other user's OR soft-deleted
+  NOTESERV --> API : raise NoteNotFoundError /\nUnauthorizedNoteAccessError
+  API --> EDITOR : 1.6' 404 "Note not found"\n(info-hiding: same response for all three)
+  EDITOR --> U : Error message
+end
+
+== Phase 2: Inline Editing + Debounce (ADR-002) ==
+loop While user is typing
+  U      -> EDITOR : 2.1 Keystroke (title or content)
+  EDITOR -> EDITOR : 2.2 Optimistic UI update,\nreset 3-second debounce timer
+end
+note over EDITOR
+  No network traffic per keystroke.
+  Timer fires only after 3s of inactivity.
+end note
+
+== Phase 3: Auto-Save Fires ==
+EDITOR -> API : 3.1 PUT /api/v1/notes/{note_id}\n{title, content} (JWT)
+EDITOR -> EDITOR : 3.2 Show "Saving..." indicator
+note over API : UpdateNoteIn validation (Pydantic)\n- title: required\n- content: optional, defaults empty\n- folder_id / user_id NOT accepted (UC-06 / JWT)\nPath note_id must be UUID\nIf invalid -> 422
+
+== Phase 4: Load & Authorize ==
+API  -> NOTESERV : 4.1 update_note(user_id, note_id, title, content)
+NOTESERV -> NOTEREPO : 4.2 find_by_id(note_id)
+NOTEREPO -> PGNOTES : 4.3 SELECT note WHERE note_id = ?
+alt Note missing OR not owner OR is_deleted
+  NOTESERV --> API : raise NoteNotFoundError /\nUnauthorizedNoteAccessError / NoteIsDeletedError
+  API --> EDITOR : 404 "Note not found"
+  EDITOR --> U : Error banner, local edits retained
+else Note loaded & authorized
+  PGNOTES --> NOTESERV : Note
+end
+
+== Phase 5: Mutate Aggregate ==
+NOTESERV -> NOTE : 5.1 rename(title)
+note over NOTE
+  Title VO revalidates (required, max 255, strip).
+  Invalid -> ValueError -> API returns 422.
+end note
+NOTESERV -> NOTE : 5.2 edit_content(content)
+note over NOTE
+  Content VO revalidates (max 1MB).
+  Both mutators bump updated_at = now() (server time).
+  created_at is never touched.
+end note
+
+== Phase 6: Persist Update ==
+NOTESERV -> NOTEREPO : 6.1 save(note)
+note over NOTEREPO
+  Port is idempotent: existing note_id -> UPDATE, not INSERT.
+end note
+NOTEREPO -> PGNOTES : 6.2 UPDATE notes\nSET title = ?, content = ?, updated_at = ?\nWHERE note_id = ?
+alt UPDATE succeeds
+  PGNOTES --> NOTEREPO : Success (ACID transaction)
+  NOTEREPO --> NOTESERV : (void)
+  NOTESERV --> API : Note (updated)
+else Database error
+  PGNOTES --> NOTEREPO : Exception
+  NOTEREPO --> NOTESERV : Exception
+  NOTESERV --> API : raise PersistenceError
+  API --> EDITOR : 500 "Failed to save note"
+  EDITOR --> U : Error banner, edits kept locally,\nretry on next debounce
+end
+
+== Phase 7: Return Response ==
+API -> API : 7.1 Convert Note -> NoteDTO\n{note_id, title, content, folder_id,\nis_pinned, created_at, updated_at}
+API --> EDITOR : 7.2 200 OK + NoteDTO\n(200 not 201 - nothing created;\nno user_id / is_deleted in body)
+
+== Phase 8: Frontend Update ==
+EDITOR -> EDITOR : 8.1 Store new updated_at,\nswitch "Saving..." -> "Saved"
+EDITOR --> U : 8.2 "Saved" indicator;\nsidebar re-sorts by updated_at (FR-009)
+note over EDITOR
+  User keeps typing -> back to Phase 2.
+  Cycle repeats for the editing session.
+end note
+
+note across
+  Latency target: < 200ms (API) from 3.1 to 7.2.
+  - Auth (JWT decode) ~5ms
+  - 4.2-4.3: Note lookup ~30ms
+  - 5.1-5.2: Mutation + VO validation ~1ms
+  - 6.1-6.2: Database UPDATE ~50ms
+  - 7.1: DTO conversion ~1ms
+  - Total backend: ~87ms ✓
+  Concurrency: last-write-wins (D4). Each PUT is atomic;
+  no optimistic locking in MVP.
+end note
+
+@enduml

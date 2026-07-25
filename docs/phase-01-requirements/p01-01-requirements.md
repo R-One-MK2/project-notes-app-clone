@@ -50,13 +50,13 @@ Build a single-user notes application replicating Apple Notes core functionality
 
 | UC | User Goal | Actor | Precondition | Main Flow | Linked FRs |
 |----|----|----|----|----|---|
-| UC-001 | Create a note and save it | User | Logged in | Click "New" → Enter title/content → Auto-save → Appears in list | FR-002, FR-004, FR-009 |
-| UC-002 | Edit a note with auto-save | User | Note open | Click editor → Type → 3 sec pause → Auto-save → "Saved" indicator | FR-003, FR-004 |
-| UC-003 | Search and find a note | User | Logged in, has notes | Type in search → Results filter in real-time → Click to open | FR-007, FR-003 |
-| UC-004 | Delete a note safely | User | Note selected | Right-click → Confirm delete → Moved to Trash | FR-005 |
-| UC-005 | Restore a deleted note | User | Note in Trash | Open Trash → Select note → Restore → Note returns to original folder | FR-005 |
-| UC-006 | Organize notes with folders | User | Logged in | Create folder → Move notes via drag-drop → View in subfolder | FR-006, FR-009 |
-| UC-007 | Pin important notes | User | Viewing notes | Right-click note → "Pin" → Moves to top with star icon | FR-008, FR-009 |
+| UC-01 | Create a note and save it | User | Logged in | Click "New" → Enter title/content → Auto-save → Appears in list | FR-002, FR-004, FR-009 |
+| UC-02 | View a note | User | Logged in, has notes | Click note in list → Opens in editor → Full content + metadata shown | FR-003 |
+| UC-03 | Edit a note with auto-save | User | Note open | Click editor → Type → 3 sec pause → Auto-save → "Saved" indicator | FR-004 |
+| UC-04 | Search and find a note | User | Logged in, has notes | Type in search → Results filter in real-time → Click to open | FR-007, FR-003 |
+| UC-05 | Delete a note safely (and restore from Trash) | User | Note selected | Right-click → Confirm delete → Moved to Trash; from Trash: Select → Restore → Returns to original folder | FR-005 |
+| UC-06 | Organize notes with folders | User | Logged in | Create folder → Move notes via drag-drop → View in subfolder | FR-006, FR-009 |
+| UC-07 | Pin important notes | User | Viewing notes | Right-click note → "Pin" → Moves to top with star icon | FR-008, FR-009 |
 
 ---
 
@@ -181,15 +181,15 @@ updated_at (timestamp)
 
 | Requirement | Use Case | Phase 6 Test |
 |--------|--------|-------|
-| FR-001 | UC-001 through UC-007 (all require auth) | TC-001 to TC-020 |
-| FR-002 | UC-001 | TC-021 to TC-030 |
-| FR-003 | UC-002, UC-003 | TC-031 to TC-040 |
-| FR-004 | UC-001, UC-002 | TC-041 to TC-050 |
-| FR-005 | UC-004, UC-005 | TC-051 to TC-060 |
-| FR-006 | UC-006 | TC-061 to TC-080 |
-| FR-007 | UC-003 | TC-081 to TC-100 |
-| FR-008 | UC-007 | TC-101 to TC-110 |
-| FR-009 | UC-001, UC-006, UC-007 | TC-111 to TC-125 |
+| FR-001 | UC-01 through UC-07 (all require auth) | TC-001 to TC-020 |
+| FR-002 | UC-01 | TC-021 to TC-030 |
+| FR-003 | UC-02, UC-04 | TC-031 to TC-040 |
+| FR-004 | UC-01, UC-03 | TC-041 to TC-050 |
+| FR-005 | UC-05 | TC-051 to TC-060 |
+| FR-006 | UC-06 | TC-061 to TC-080 |
+| FR-007 | UC-04 | TC-081 to TC-100 |
+| FR-008 | UC-07 | TC-101 to TC-110 |
+| FR-009 | UC-01, UC-06, UC-07 | TC-111 to TC-125 |
 
 ---
 

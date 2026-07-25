@@ -3,7 +3,7 @@ Tests for the Notes API route (UC-01: Create Note).
 
 TEST PLAN OVERVIEW
 Traceability: Every test cites an Acceptance Criterion (AC-NN) from
-phase5-detailed-use-cases/p5-UC-01-create-note.md.
+docs/phase-05-implementation/p05-uc01-create-note.md.
 
 Rule: No test without an AC. If a behavior needs testing but has no AC,
 add the AC to the UC doc first, then write the test.

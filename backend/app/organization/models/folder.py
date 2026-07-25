@@ -6,7 +6,7 @@ from uuid import UUID
 class Folder:
     """
     A folder that owns notes. Minimal implementation for UC-01.
-    Full Folder aggregate (create, rename, delete, nesting) comes in UC-05.
+    Full Folder aggregate (create, rename, delete, nesting) comes in UC-06.
     """
 
     def __init__(self, folder_id: UUID, user_id: UUID) -> None:

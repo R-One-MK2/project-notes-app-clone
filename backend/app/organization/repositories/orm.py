@@ -11,7 +11,7 @@ class FolderORM(Base):
     """
     Folders table mapping.
 
-    Minimal for UC-01 authorization checks. Full folder schema in UC-05.
+    Minimal for UC-01 authorization checks. Full folder schema in UC-06.
     """
 
     __tablename__ = "folders"

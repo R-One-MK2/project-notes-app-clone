@@ -1,0 +1,146 @@
+@startuml UC003_EditNote_Class
+!theme plain
+skinparam backgroundColor #FEFEFE
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+' Color palette
+' boundary=blue, service=green, domain=amber, repo/port/adapter=lavender, infra=gray
+' Members marked «UC-02» (view) / «UC-03» (edit) / «UC-02/03» (shared) are new; unmarked members exist from UC-01.
+
+rectangle "Frontend (Next.js)" as FE {
+  class "«boundary»\nNoteEditor\n(components/note-editor.tsx)" as EDITOR #E6F0FB {
+    +title: str
+    +content: str
+    +noteId: UUID
+    +saveState: "idle" | "saving" | "saved" | "error"
+    +onChange(title, content) «resets debounce»
+    +flushSave() «on blur/navigate»
+  }
+  class "«boundary»\nuseAutoSave\n(hooks/use-auto-save.ts)" as DEBOUNCE #E6F0FB {
+    +delayMs: 3000 «ADR-002»
+    +schedule(save: () => Promise)
+    +cancel()
+  }
+  class "«boundary»\nNotesApiClient\n(api/client.ts)" as CLIENT #E6F0FB {
+    +getNote(noteId): Promise<NoteDTO>
+    +updateNote(noteId, title, content): Promise<NoteDTO>
+  }
+}
+
+rectangle "Application Layer (FastAPI)" as APP {
+  class "«boundary»\nNotes API\n(app/notes/api/v1/router.py)" as ROUTER #E6F0FB {
+    +create_note(req: CreateNoteIn): NoteDTO
+    +get_note(note_id: UUID): NoteDTO «UC-02»
+    +update_note(note_id: UUID, req: UpdateNoteIn): NoteDTO «UC-03»
+  }
+  class "«boundary»\nSchemas\n(app/notes/schemas/note_schemas.py)" as SCHEMAS #E6F0FB {
+    +CreateNoteIn
+    +UpdateNoteIn «UC-03: title req, content opt»
+    +NoteDTO «UC-02/03: no user_id / is_deleted»
+  }
+}
+
+rectangle "Domain Layer (Business Logic)" as DOMAIN {
+  class "«service»\nNoteService\n(app/notes/services/note_service.py)" as NOTESERV #E7F4EA {
+    +create_note(user_id, folder_id, title, content): Note
+    +get_note(user_id, note_id): Note «UC-02»
+    +update_note(user_id, note_id, title, content): Note «UC-03»
+  }
+  class "«exception»\nNoteNotFoundError «UC-02/03»" as EXNF #E7F4EA
+  class "«exception»\nUnauthorizedNoteAccessError «UC-02/03»" as EXAUTH #E7F4EA
+  class "«root entity»\nNote\n(app/notes/models/note.py)" as NOTE #FBF2D9 {
+    -note_id: UUID
+    -user_id: UUID
+    -folder_id: UUID
+    -title: Title
+    -content: Content
+    -is_pinned: bool
+    -is_deleted: bool
+    -created_at: datetime «immutable»
+    -updated_at: datetime
+    +create(...): Note «factory, UC-01»
+    +rename(title: str) «UC-03: Title VO + bump updated_at»
+    +edit_content(content: str) «UC-03: Content VO + bump updated_at»
+    +belongs_to(user_id): bool
+  }
+  class "«exception»\nNoteIsDeletedError «UC-03»" as EXDEL #FBF2D9
+  class "«value object»\nTitle\n(value_objects.py)" as TITLE #FBF2D9 {
+    +Title(value: str)
+    «validate: required, max 255, strip»
+  }
+  class "«value object»\nContent\n(value_objects.py)" as CONTENT #FBF2D9 {
+    +Content(value: str)
+    «validate: max 1MB»
+  }
+}
+
+rectangle "Infrastructure Layer (Persistence)" as INFRA {
+  class "«port»\nNoteRepository\n(app/notes/repositories/ports.py)" as NOTEREPO #EEE7F7 {
+    +save(note: Note): void «idempotent: existing id → UPDATE»
+    +find_by_id(note_id): Note? «UC-02/03 consumer»
+  }
+  class "«adapter»\nSQLAlchemyNoteRepository\n(repositories/sqlalchemy_repo.py)" as SQLA_NOTE #EEE7F7 {
+    +save(note) «UC-03: UPDATE path»
+    +find_by_id(note_id)
+  }
+  class "«adapter»\nInMemoryNoteRepository\n(repositories/in_memory_repo.py)" as MEM_NOTE #EEE7F7 {
+    «test double for service tests»
+  }
+}
+
+rectangle "Database" as DB {
+  class "«infra»\nPostgreSQL\n(notes table)" as PGNOTES #ECECEC {
+    SELECT WHERE note_id = ?
+    UPDATE SET title, content, updated_at
+  }
+}
+
+' --- Relationships ---
+EDITOR --> DEBOUNCE : onChange schedules save
+DEBOUNCE --> CLIENT : fires after 3s idle
+CLIENT ..> ROUTER : GET /api/v1/notes/{id}\nPUT /api/v1/notes/{id}
+
+ROUTER --> SCHEMAS : validates body → UpdateNoteIn
+ROUTER --> NOTESERV : get_note / update_note(user_id, ...)
+ROUTER ..> SCHEMAS : response → NoteDTO
+NOTESERV ..> EXNF : raises → 404
+NOTESERV ..> EXAUTH : raises → 404 (info-hiding)
+
+NOTESERV --> NOTEREPO : find_by_id(note_id), save(note)
+NOTESERV --> NOTE : rename(), edit_content()
+
+NOTE ..> TITLE : rename() revalidates
+NOTE ..> CONTENT : edit_content() revalidates
+NOTE ..> EXDEL : raises if is_deleted → 404
+
+NOTEREPO <|.. SQLA_NOTE : implements
+NOTEREPO <|.. MEM_NOTE : implements
+SQLA_NOTE --> PGNOTES : SELECT / UPDATE
+
+note right of NOTESERV
+  Orchestrates: load note, verify
+  ownership BEFORE mutation, apply
+  mutators, persist via save()
+end note
+
+note right of NOTE
+  Mutators — not setters — preserve
+  encapsulation. Both bump updated_at
+  (server time); created_at immutable.
+  Deleted notes reject mutation.
+end note
+
+note right of SQLA_NOTE
+  save() is idempotent: existing
+  note_id → SQL UPDATE (no duplicate
+  INSERT). Same port as UC-01.
+end note
+
+note bottom of DEBOUNCE
+  ADR-002: one PUT per 3-second
+  typing pause, never per keystroke.
+  Last-write-wins concurrency (D4).
+end note
+
+@enduml
