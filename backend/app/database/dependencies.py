@@ -1,6 +1,6 @@
 """FastAPI dependency-injection helpers for the database."""
 
-from typing import Iterator
+from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 

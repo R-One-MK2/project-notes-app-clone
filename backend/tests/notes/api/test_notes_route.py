@@ -1,15 +1,12 @@
 """
 Tests for the Notes API route (UC-01: Create Note).
 
-===============================================================================
 TEST PLAN OVERVIEW
-===============================================================================
 Traceability: Every test cites an Acceptance Criterion (AC-NN) from
 phase5-detailed-use-cases/p5-UC-01-create-note.md.
 
 Rule: No test without an AC. If a behavior needs testing but has no AC,
 add the AC to the UC doc first, then write the test.
-===============================================================================
 
 SESSION 1 — HTTP Plumbing (COMPLETE)
 Goal: Establish the HTTP boundary. Route exists, responds, is observable.
@@ -20,7 +17,6 @@ Goal: Establish the HTTP boundary. Route exists, responds, is observable.
   [x] Cycle 4: Log message includes HTTP method and path           → AC-34
   [x] Cycle 5: Refactor — extract router to app/notes/api/v1/
 
--------------------------------------------------------------------------------
 SESSION 2 — HTTP Boundary Validation (IN PROGRESS)
 Goal: Enforce structural validation via Pydantic. Reject malformed requests
       with 422 before the domain is invoked.
@@ -33,7 +29,6 @@ Goal: Enforce structural validation via Pydantic. Reject malformed requests
   [x] Cycle 11: Valid request still returns 200 (regression)       → AC-01
   [x] Cycle 12: Refactor — extract CreateNoteRequest to schemas.py
 
--------------------------------------------------------------------------------
 
 SESSION 3 — Domain Layer (Value Objects + Aggregate)
 Goal: Build the domain layer in pure Python. No FastAPI, no Pydantic, no DB.
@@ -61,16 +56,14 @@ Session 5 — Persistence Adapters (SQLAlchemy)              → AC-21..AC-24
 Session 6 — Authentication & Authorization (JWT)           → AC-25..AC-29
 Session 7 — Response DTOs (NoteDTO, 201 status)            → AC-30..AC-32
 Session 8 — E2E Integration Tests                          → AC-36..AC-37
-===============================================================================
 """
 
 import logging
+from uuid import UUID
 
-from app.main import app
-from fastapi.testclient import TestClient
-
-client = TestClient(app)
-
+# Import ORM models to register with Base.metadata
+from app.notes.repositories.orm import NoteORM  # noqa: F401
+from app.organization.repositories.orm import FolderORM  # noqa: F401
 
 # ------------------------------------------------
 # Test fixtures / helpers
@@ -78,19 +71,22 @@ client = TestClient(app)
 
 # A minimally valid payload used across happy-path and regression tests.
 # Session 2 introduces validation, so all tests must send a valid body now.
+TEST_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
+TEST_FOLDER_ID = UUID("550e8400-e29b-41d4-a716-446655440000")
 
 VALID_PAYLOAD = {
     "title": "Grocery List",
     "content": "Milk, Eggs, Bread",
-    "folder_id": "550e8400-e29b-41d4-a716-446655440000",
+    "folder_id": str(TEST_FOLDER_ID),
 }
+
 
 # ------------------------------------------------
 # SESSION 1 — HTTP Plumbing
 # ------------------------------------------------
 
 
-def test_valid_request_returns_success():
+def test_valid_request_returns_success(client):
     """
     AC-01: Valid, complete request returns 200 with {"status": "success"}.
 
@@ -101,10 +97,11 @@ def test_valid_request_returns_success():
     response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
 
     assert response.status_code == 200
-    assert response.json() == {"status": "success"}
+    body = response.json()
+    assert "note_id" in body
 
 
-def test_post_notes_logs_at_info_level(caplog):
+def test_post_notes_logs_at_info_level(client, caplog):
     """
     AC-33: Every POST is logged at INFO level.
 
@@ -119,7 +116,7 @@ def test_post_notes_logs_at_info_level(caplog):
     assert len(info_records) >= 1, "Expected at least one INFO log record"
 
 
-def test_post_notes_log_includes_method_and_path(caplog):
+def test_post_notes_log_includes_method_and_path(client, caplog):
     """
     AC-34: Log message includes HTTP method and path.
 
@@ -138,7 +135,7 @@ def test_post_notes_log_includes_method_and_path(caplog):
 # SESSION 2 — HTTP Boundary Validation
 # (Tests will be added here one at a time, following RED → GREEN → REFACTOR)
 # ------------------------------------------------
-def test_missing_title_returns_422():
+def test_missing_title_returns_422(client):
     """
     AC-02: Missing title field returns 422.
 
@@ -155,7 +152,7 @@ def test_missing_title_returns_422():
     assert response.status_code == 422
 
 
-def test_title_wrong_type_returns_422():
+def test_title_wrong_type_returns_422(client):
     """
     AC-03: Non-string title returns 422.
 
@@ -172,7 +169,7 @@ def test_title_wrong_type_returns_422():
     assert response.status_code == 422
 
 
-def test_missing_folder_id_returns_422():
+def test_missing_folder_id_returns_422(client):
     """
     AC-04: Missing folder_id returns 422.
 
@@ -189,7 +186,7 @@ def test_missing_folder_id_returns_422():
     assert response.status_code == 422
 
 
-def test_invalid_folder_id_returns_422():
+def test_invalid_folder_id_returns_422(client):
     """
     AC-05: Malformed UUID folder_id returns 422.
 
@@ -204,7 +201,7 @@ def test_invalid_folder_id_returns_422():
     assert response.status_code == 422
 
 
-def test_missing_content_is_optional_200():
+def test_missing_content_is_optional_200(client):
     """
     AC-06: Missing content is accepted (content is optional).
 
