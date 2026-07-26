@@ -9,7 +9,7 @@ Domain rules (title length, content limits) belong in the domain layer's Value O
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class CreateNoteIn(BaseModel):
@@ -18,6 +18,17 @@ class CreateNoteIn(BaseModel):
     title: str
     folder_id: UUID
     content: str = ""
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class UpdateNoteIn(BaseModel):
+    """Request body for PUT /api/v1/notes/{note_id}."""
+
+    title: str
+    content: str = ""
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class NoteDTO(BaseModel):

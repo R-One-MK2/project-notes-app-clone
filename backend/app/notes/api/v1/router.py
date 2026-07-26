@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.database.dependencies import get_session
 from app.notes.repositories import SQLAlchemyNoteRepository
-from app.notes.schemas import CreateNoteIn, NoteDTO
+from app.notes.schemas import CreateNoteIn, NoteDTO, UpdateNoteIn
 from app.notes.services import NoteService
 from app.notes.services.note_service import (
     FolderNotFoundError,
@@ -101,6 +101,57 @@ def get_note(
             status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
         )
 
+    return NoteDTO(
+        note_id=note.note_id,
+        title=note.title.value,
+        content=note.content.value,
+        folder_id=note.folder_id,
+        is_pinned=note.is_pinned,
+        created_at=note.created_at,
+        updated_at=note.updated_at,
+    )
+
+
+@router.put(
+    "/{note_id}",
+    responses={
+        404: {"description": "Note not found or not owned by user"},
+        422: {"description": "Invalid title or content"},
+    },
+)
+def update_note(
+    note_id: UUID,
+    request: UpdateNoteIn,
+    service: Annotated[NoteService, Depends(get_note_service)],
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+):
+    """
+    Update a note's title and content.
+
+    Returns 404 if the note doesn't exist, belongs to another user,
+    or is soft-deleted (info-hiding).
+    Body fields folder_id and user_id are silently ignored.
+    """
+
+    logger.info("GET /api/v1/notes/%s", note_id)
+
+    # Update Note
+    try:
+        note = service.update_note(user_id, note_id, request.title, request.content)
+
+    # Exception
+    except NoteNotFoundError as e:
+        logger.warning("Note not found: %s", e)
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Note not found"
+        )
+    except ValueError as e:
+        logger.warning("Invalid Input: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)
+        )
+    # Return DTO
     return NoteDTO(
         note_id=note.note_id,
         title=note.title.value,
