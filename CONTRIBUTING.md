@@ -79,6 +79,44 @@ A few notes on this flow:
 4. Open a PR into `main`. A Chore can often be a single commit. Features and Enablers usually land as a sequence of commits merged through one PR, as you can see in the existing history.
 5. Docs land in the same PR as the code they describe. Don't leave documentation for a follow-up PR.
 
+## Commit Message Guidelines
+
+### Format
+
+```
+<PREFIX>: [<tag>] <short description>
+```
+
+- `<PREFIX>` is the commit prefix from the table above (`FEATURE-UCXX-NAME`, `ENABLER-EXX-NAME`, `CHORE`, `FIX`), or `DOCS-Update` for a documentation-only commit.
+- `<tag>` is optional context in square brackets: a Session or Stage number, and/or the AC IDs the commit satisfies. Leave it out for Chores and simple Fixes.
+- `<short description>` is a plain-English summary in the imperative mood ("Add", not "Added" or "Adding").
+
+### Examples (real ones from this repo's history)
+
+```
+FEATURE-UC01-CREATE-NOTE: [Session 5C] SQLAlchemy repository adapters
+FEATURE-UC03-EDIT-NOTE: [S3, AC-01..06, AC-12] PUT /api/v1/notes/{note_id}
+DOCS-Update: UC-02 Documentation Update
+```
+
+And in the same style, for the newer types introduced in this guide:
+
+```
+ENABLER-E01-NEXTJS-FOUNDATION: [Stage 1] Scaffold app with create-next-app
+CHORE: Bump next.js to 16.3.1
+FIX: Correct off-by-one error in note list pagination
+```
+
+### Rules
+
+1. One logical change per commit. Don't mix a Feature step with an unrelated Chore.
+2. Use the imperative mood, as if finishing the sentence "This commit will ...".
+3. For Feature commits, reference every AC ID the commit satisfies, so the FR → UC → AC → Test → Code → Commit chain stays traceable.
+4. Keep the description short. If more explanation is needed, add it in the commit body below a blank line, not by making the first line longer.
+5. Documentation-only changes always use `DOCS-Update:`, no matter which type of work they document.
+
+---
+
 ## Where Things Live
 
 - `docs/phase-01-requirements/`: the FRs, NFRs, and the list of use cases. This rarely changes, only when scope changes.
