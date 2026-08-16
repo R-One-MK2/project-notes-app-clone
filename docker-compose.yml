@@ -1,5 +1,22 @@
 
 services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: notes-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind-mount source for hot reload. The venv lives at /opt/venv
+      # (outside /app), so this mount does not shadow it.
+      - ./backend:/app
+    environment:
+      # Makes the uvicorn --reload watcher pick up changes through the
+      # Windows bind mount (inotify doesn't cross the host/VM boundary).
+      WATCHFILES_FORCE_POLLING: "true"
+
   postgres:
     image: postgres:17-alpine
     container_name: notes-postgres
