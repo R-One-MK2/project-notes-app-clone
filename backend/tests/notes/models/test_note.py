@@ -14,9 +14,11 @@ Cycles:
 """
 
 # Test fixtures — reusable valid inputs
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
+import pytest
 from app.notes.models import Content, Note, Title
 
 # from app.notes.models.note import Note
@@ -50,9 +52,9 @@ def test_note_create_generates_sets_created_at_to_now():
     The timestamp is server-generated, not client-provided.
     Requirement: FR-002 — creation time recorded automatically.
     """
-    before = datetime.now()
+    before = datetime.now(timezone.utc)
     note = Note.create(USER_ID, FOLDER_ID, VALID_TITLE, VALID_CONTENT)
-    after = datetime.now()
+    after = datetime.now(timezone.utc)
 
     assert isinstance(note.created_at, datetime)
     assert before <= note.created_at <= after
@@ -122,3 +124,73 @@ def test_notes_with_same_id_are_equal():
     )
 
     assert note_original == note_updated
+
+
+# ============================================================
+# UC-003 Session 1 — Domain mutators
+# ============================================================
+def test_rename_updates_title():
+    """AC-07: rename() replaces the title via Title VO."""
+    note = Note.create(USER_ID, FOLDER_ID, VALID_TITLE, VALID_CONTENT)
+    note.rename("New Title")
+    assert note.title.value == "New Title"
+
+
+def test_rename_rejects_empty_string():
+    """AC-07: rename delegates to Title VO — empty string is rejected."""
+    note = Note.create(USER_ID, FOLDER_ID, VALID_TITLE, VALID_CONTENT)
+    with pytest.raises(ValueError, match="empty"):
+        note.rename("")
+
+
+def test_rename_bumps_updated_at():
+    """AC-09: updated_at advances after rename."""
+
+    note = Note.create(USER_ID, FOLDER_ID, VALID_TITLE, VALID_CONTENT)
+    original_updated_at = note.updated_at
+
+    time.sleep(0.001)
+
+    note.rename("New Title")
+    assert note.updated_at > original_updated_at
+
+
+def test_edit_content_updates_content():
+    """AC-08: edit_content() replaces the content via Content VO."""
+    note = Note.create(USER_ID, FOLDER_ID, VALID_TITLE, VALID_CONTENT)
+
+    note.edit_content("New Content")
+
+    assert note.content.value == "New Content"
+
+
+def test_edit_content_accepts_empty_string():
+    """AC-08: edit_content accepts empty (Content allows empty by design)."""
+    note = Note.create(USER_ID, FOLDER_ID, VALID_TITLE, VALID_CONTENT)
+
+    note.edit_content("")
+    assert note.content.value == ""
+
+
+def test_edit_content_bumps_updated_at():
+    """AC-09: updated_at advances after edit_content."""
+    note = Note.create(USER_ID, FOLDER_ID, VALID_TITLE, VALID_CONTENT)
+    original_updated_at = note.updated_at
+
+    time.sleep(0.001)
+
+    note.edit_content("Updated Content")
+    assert note.updated_at > original_updated_at
+
+
+def test_mutations_never_change_created_at():
+    """AC-09: created_at is immutable across mutations."""
+    note = Note.create(USER_ID, FOLDER_ID, VALID_TITLE, VALID_CONTENT)
+    original_created_at = note.created_at
+
+    time.sleep(0.001)
+
+    note.rename("Updated Title")
+    note.edit_content("Updated Content")
+
+    assert note.created_at == original_created_at

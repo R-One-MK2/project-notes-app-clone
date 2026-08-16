@@ -73,6 +73,7 @@ from app.organization.repositories.orm import FolderORM  # noqa: F401
 # Session 2 introduces validation, so all tests must send a valid body now.
 TEST_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 TEST_FOLDER_ID = UUID("550e8400-e29b-41d4-a716-446655440000")
+TEST_NOTE_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 VALID_PAYLOAD = {
     "title": "Grocery List",
@@ -80,6 +81,7 @@ VALID_PAYLOAD = {
     "folder_id": str(TEST_FOLDER_ID),
 }
 
+UPDATED_BODY = {"title": "Updated Title", "content": "Updated Content"}
 
 # ------------------------------------------------
 # SESSION 1 — HTTP Plumbing
@@ -288,3 +290,120 @@ def test_get_note_hides_internal_fields(client):
 
     assert "user_id" not in body
     assert "is_deleted" not in body
+
+
+# ============================================================
+# UC-003 — PUT /api/v1/notes/{note_id}
+# ============================================================
+
+
+def test_update_existing_note_returns_updated_dto(client):
+    """
+    UC-003 AC-01: PUT existing note returns 200 with updated NoteDTO.
+    """
+    create_response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    note_id = create_response.json()["note_id"]
+
+    response = client.put(f"/api/v1/notes/{note_id}", json=UPDATED_BODY)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["note_id"] == note_id
+    assert body["title"] == "Updated Title"
+    assert body["content"] == "Updated Content"
+
+
+def test_update_missing_note_returns_404(client):
+    """
+    UC-003 AC-02: PUT nonexistent note returns 404.
+    """
+    response = client.put(f"/api/v1/notes/{TEST_NOTE_ID}", json=UPDATED_BODY)
+    assert response.status_code == 404
+
+
+def test_update_malformed_uuid_returns_422(client):
+    """
+    UC-003 AC-03: PUT with malformed UUID returns 422.
+    """
+    response = client.put("/api/v1/notes/random-not-uuid", json=UPDATED_BODY)
+    assert response.status_code == 422
+
+
+def test_update_missing_title_returns_422(client):
+    """
+    UC-003 AC-04: PUT missing title in body returns 422.
+    """
+    create_response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    note_id = create_response.json()["note_id"]
+
+    response = client.put(
+        f"/api/v1/notes/{note_id}", json={"content": "No title, just content"}
+    )
+    assert response.status_code == 422
+
+
+def test_update_content_is_optional(client):
+    """
+    UC-003 AC-05: PUT accepts payload with only title; content defaults to empty.
+    """
+    create_response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    note_id = create_response.json()["note_id"]
+
+    response = client.put(
+        f"/api/v1/notes/{note_id}", json={"title": "Only title, no content"}
+    )
+    assert response.status_code == 200
+    assert response.json()["content"] == ""
+
+
+def test_update_ignores_unknown_body_fields(client):
+    """
+    UC-003 AC-06: PUT silently ignores fields like folder_id and user_id.
+    Attacker cannot hijack ownership or move notes via update body.
+    """
+    create_response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    note_id = create_response.json()["note_id"]
+
+    # Get original folder for comparison
+    get_response = client.get(f"/api/v1/notes/{note_id}")
+    original_folder_id = get_response.json()["folder_id"]
+
+    # Try to hijack
+    malicious_body = {
+        "title": "Legitimate title",
+        "content": "Legitimate content",
+        "folder_id": str(uuid4()),  # attempt to move
+        "user_id": str(uuid4()),  # attempt to hijack
+        "is_deleted": True,  # attempt to delete
+    }
+    response = client.put(f"/api/v1/notes/{note_id}", json=malicious_body)
+
+    assert response.status_code == 200
+    body = response.json()
+
+    # Verify ownership/folder unchanged
+    assert body["folder_id"] == original_folder_id
+
+
+def test_update_end_to_end_create_update_read(client):
+    """
+    UC-003 AC-12: E2E — Create → PUT → GET returns updated values with bumped updated_at.
+    """
+    create_response = client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    note_id = create_response.json()["note_id"]
+
+    # Initial Get
+    initial_get = client.get(f"/api/v1/notes/{note_id}")
+    initial_updated_at = initial_get.json()["updated_at"]
+
+    # Update
+    client.put(f"/api/v1/notes/{note_id}", json=UPDATED_BODY)
+
+    final_get = client.get(f"/api/v1/notes/{note_id}")
+    final_body = final_get.json()
+
+    final_updated_at = final_body["updated_at"]
+
+    assert final_body["title"] == UPDATED_BODY["title"]
+    assert final_body["content"] == UPDATED_BODY["content"]
+    assert final_updated_at > initial_updated_at

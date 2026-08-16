@@ -73,7 +73,7 @@ class NoteService:
         self._note_repo.save(note)
         return note
 
-    def get_note(self, user_id: UUID, note_id: UUID):
+    def get_note(self, user_id: UUID, note_id: UUID) -> Note:
         """
         Retrieve a note by ID, enforcing ownership and non-deletion.
 
@@ -94,4 +94,30 @@ class NoteService:
         if note.is_deleted:
             raise NoteNotFoundError(f"Note {note_id} not found!")
 
+        return note
+
+    def update_note(
+        self, user_id: UUID, note_id: UUID, title: str, content: str
+    ) -> Note:
+        """
+        Update a note's title and content.
+
+        Reuses get_note() for authorization (missing/wrong user/deleted → 404).
+        Delegates validation to Title/Content VOs via aggregate mutators.
+
+        Raises:
+            NoteNotFoundError: if note doesn't exist, belongs to another user,
+                or is soft-deleted.
+            ValueError: if title/content violate domain rules (from VOs).
+        """
+        note = self.get_note(user_id, note_id)
+
+        # Update the Contents
+        note.rename(title)
+        note.edit_content(content)
+
+        # Persist Note
+        self._note_repo.save(note)
+
+        # Return Note
         return note

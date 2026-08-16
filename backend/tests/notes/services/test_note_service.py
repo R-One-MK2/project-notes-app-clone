@@ -33,6 +33,7 @@ OTHER_USER_ID = uuid4()
 FOLDER_ID = uuid4()
 UNKNOWN_FOLDER_ID = uuid4()
 NOTE_ID = uuid4()
+OTHER_NOTE_ID = uuid4()
 TITLE = "Sample Title"
 CONTENT = "Sample Content"
 
@@ -148,7 +149,7 @@ def test_get_note_raises_when_missing():
     service = make_service_with_folder()
 
     with pytest.raises(NoteNotFoundError, match="not found"):
-        service.get_note(USER_ID, uuid4())
+        service.get_note(USER_ID, OTHER_NOTE_ID)
 
 
 def test_get_note_raises_when_wrong_user():
@@ -159,3 +160,58 @@ def test_get_note_raises_when_wrong_user():
 
     with pytest.raises(NoteNotFoundError, match="not found"):
         service.get_note(USER_ID, other_note.note_id)
+
+
+# ============================================================
+# UC-003 Session 2 — update_note()
+# ============================================================
+
+
+def test_update_note_persists_changes():
+    """
+    AC-11: update_note mutates the note and persists via repo.
+    """
+
+    service = make_service_with_folder()
+
+    note = service.create_note(USER_ID, FOLDER_ID, TITLE, CONTENT)
+
+    updated_note = service.update_note(
+        USER_ID, note.note_id, "Updated Title", "Updated Content"
+    )
+
+    assert updated_note.title.value == "Updated Title"
+    assert updated_note.content.value == "Updated Content"
+
+    retrieved_note = service._note_repo.find_by_id(note.note_id)
+
+    assert retrieved_note is not None
+    assert retrieved_note.title.value == "Updated Title"
+    assert retrieved_note.content.value == "Updated Content"
+
+
+def test_update_note_raises_when_note_missing():
+    """
+    AC-10: unknown note_id → NoteNotFoundError (via get_note).
+    """
+
+    service = make_service_with_folder()
+
+    with pytest.raises(NoteNotFoundError, match="not found"):
+        service.update_note(USER_ID, NOTE_ID, TITLE, CONTENT)
+
+
+def test_update_note_raises_when_wrong_user():
+    """
+    AC-10: note owned by another user → NoteNotFoundError (info-hiding).
+    """
+
+    service = make_service_with_folder()
+
+    note = service.create_note(USER_ID, FOLDER_ID, TITLE, CONTENT)
+    WRONG_USER_ID = OTHER_USER_ID
+
+    with pytest.raises(NoteNotFoundError, match="not found"):
+        service.update_note(
+            WRONG_USER_ID, note.note_id, "Updated Title", "Updated Content"
+        )
