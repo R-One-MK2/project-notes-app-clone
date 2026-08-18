@@ -14,10 +14,11 @@ Cycles:
   [x] Cycle 35: created note has correct folder                    → contract
 """
 
+from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
-from app.notes.models import Note
+from app.notes.models import Content, Note, Title
 from app.notes.repositories import InMemoryNoteRepository
 from app.notes.services import (
     FolderNotFoundError,
@@ -31,14 +32,19 @@ from app.organization.repositories import InMemoryFolderRepository
 USER_ID = uuid4()
 OTHER_USER_ID = uuid4()
 FOLDER_ID = uuid4()
+OTHER_FOLDER_ID = uuid4()
 UNKNOWN_FOLDER_ID = uuid4()
 NOTE_ID = uuid4()
 OTHER_NOTE_ID = uuid4()
 TITLE = "Sample Title"
+OTHER_TITLE = "Another Sample Title"
 CONTENT = "Sample Content"
+OTHER_CONTENT = "Other Content"
 
 
-def make_service_with_folder(user_id: UUID = USER_ID):
+def make_service_with_folder(
+    user_id: UUID = USER_ID, other_user_id: UUID | None = None
+):
     """
     Helper: build a NoteService with a pre-populated folder.
 
@@ -51,6 +57,10 @@ def make_service_with_folder(user_id: UUID = USER_ID):
     # Add folder to User
     user_folder = Folder(FOLDER_ID, user_id)
     folder_repo.add(user_folder)
+
+    if other_user_id is not None:
+        other_user_folder = Folder(OTHER_FOLDER_ID, other_user_id)
+        folder_repo.add(other_user_folder)
 
     service = NoteService(note_repo, folder_repo)
     return service
@@ -165,6 +175,60 @@ def test_get_note_raises_when_wrong_user():
 # ============================================================
 # UC-003 Session 2 — update_note()
 # ============================================================
+def test_list_notes_returns_only_requesting_users_notes():
+    """ "
+    Tests that the notes only returns the ones belong to the user
+    """
+    service = make_service_with_folder(other_user_id=OTHER_USER_ID)
+
+    note = service.create_note(USER_ID, FOLDER_ID, TITLE, CONTENT)
+    other_note = service.create_note(
+        OTHER_USER_ID, OTHER_FOLDER_ID, OTHER_TITLE, OTHER_CONTENT
+    )
+
+    notes = service.list_notes(USER_ID)
+    assert other_note.note_id not in {note.note_id for note in notes}
+
+
+def test_excludes_softdeleted_notes():
+    """
+    Test if soft deleted notes are included in the test
+    """
+    service = make_service_with_folder()
+
+    # Create visible note
+    visible_note = service.create_note(USER_ID, FOLDER_ID, TITLE, CONTENT)
+
+    # Create invisible note and save
+    invisible_note = Note(
+        title=Title(TITLE),
+        content=Content(CONTENT),
+        note_id=NOTE_ID,
+        user_id=USER_ID,
+        folder_id=FOLDER_ID,
+        is_deleted=True,
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+        is_pinned=False,
+    )
+    service._note_repo.save(invisible_note)
+
+    # Call from the repo
+    notes = service.list_notes(USER_ID)
+
+    assert visible_note.note_id in {n.note_id for n in notes}
+    assert invisible_note.note_id not in {n.note_id for n in notes}
+
+
+def test_return_empty_list_when_user_has_no_notes():
+    """
+    Returns empty list when user has no notes
+    """
+    service = make_service_with_folder()
+
+    notes = service.list_notes(USER_ID)
+
+    assert notes == []
 
 
 def test_update_note_persists_changes():

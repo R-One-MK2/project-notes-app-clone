@@ -96,6 +96,10 @@ class NoteService:
 
         return note
 
+    def list_notes(self, user_id: UUID) -> list[Note]:
+        """Retrieve all notes owned by user_id, excluding soft-deleted ones."""
+        return self._note_repo.find_by_user(user_id)
+
     def update_note(
         self, user_id: UUID, note_id: UUID, title: str, content: str
     ) -> Note:
