@@ -3,6 +3,7 @@ from app.notes.services.note_service import (
     NoteNotFoundError,
     NoteService,
     UnauthorizedFolderAccessError,
+    UserNotFoundError,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "NoteNotFoundError",
     "NoteService",
     "UnauthorizedFolderAccessError",
+    "UserNotFoundError",
 ]

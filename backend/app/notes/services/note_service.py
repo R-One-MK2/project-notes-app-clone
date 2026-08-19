@@ -13,6 +13,10 @@ class FolderNotFoundError(Exception):
     """Raised when the target folder does not exist."""
 
 
+class UserNotFoundError(Exception):
+    """Raised when the target user does not exist."""
+
+
 class UnauthorizedFolderAccessError(Exception):
     """Raised when the folder exists but does not belong to the user."""
 
