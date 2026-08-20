@@ -13,6 +13,10 @@ class FolderNotFoundError(Exception):
     """Raised when the target folder does not exist."""
 
 
+class UserNotFoundError(Exception):
+    """Raised when the target user does not exist."""
+
+
 class UnauthorizedFolderAccessError(Exception):
     """Raised when the folder exists but does not belong to the user."""
 
@@ -95,6 +99,10 @@ class NoteService:
             raise NoteNotFoundError(f"Note {note_id} not found!")
 
         return note
+
+    def list_notes(self, user_id: UUID) -> list[Note]:
+        """Retrieve all notes owned by user_id, excluding soft-deleted ones."""
+        return self._note_repo.find_by_user(user_id)
 
     def update_note(
         self, user_id: UUID, note_id: UUID, title: str, content: str

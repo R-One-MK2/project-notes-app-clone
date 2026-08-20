@@ -26,3 +26,10 @@ class NoteRepository(Protocol):
         Retrieve a note by ID. Returns None if not found
         """
         ...
+
+    def find_by_user(self, user_id: UUID) -> list[Note]:
+        """
+        Retrieve all notes owned by user_id.
+        Returns an empty list if the user has no notes.
+        """
+        ...

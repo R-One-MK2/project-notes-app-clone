@@ -17,3 +17,10 @@ class InMemoryNoteRepository:
 
     def find_by_id(self, note_id: UUID) -> Note | None:
         return self._notes.get(note_id)
+
+    def find_by_user(self, user_id: UUID) -> list[Note]:
+        return [
+            note
+            for note in self._notes.values()
+            if note.belongs_to(user_id) and not note.is_deleted
+        ]

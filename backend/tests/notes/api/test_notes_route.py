@@ -407,3 +407,57 @@ def test_update_end_to_end_create_update_read(client):
     assert final_body["title"] == UPDATED_BODY["title"]
     assert final_body["content"] == UPDATED_BODY["content"]
     assert final_updated_at > initial_updated_at
+
+
+# ============================================================
+# UC-004 — GET /api/v1/notes (list notes)
+# ============================================================
+
+
+def test_list_notes_returns_empty_list_when_no_notes(client):
+    """GET with no notes created returns 200 with an empty list."""
+    response = client.get("/api/v1/notes")
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_notes_returns_created_notes(client):
+    """GET returns every note previously created by this user."""
+    client.post("/api/v1/notes", json=VALID_PAYLOAD)
+    client.post("/api/v1/notes", json={**VALID_PAYLOAD, "title": "Second note"})
+
+    response = client.get("/api/v1/notes")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 2
+    titles = {note["title"] for note in body}
+    assert titles == {VALID_PAYLOAD["title"], "Second note"}
+
+
+def test_list_notes_response_shape(client):
+    """Each item in the list contains all seven public NoteDTO fields."""
+    client.post("/api/v1/notes", json=VALID_PAYLOAD)
+
+    response = client.get("/api/v1/notes")
+    note = response.json()[0]
+
+    assert "note_id" in note
+    assert "title" in note
+    assert "content" in note
+    assert "folder_id" in note
+    assert "is_pinned" in note
+    assert "created_at" in note
+    assert "updated_at" in note
+
+
+def test_list_notes_hides_internal_fields(client):
+    """List items never expose user_id or is_deleted."""
+    client.post("/api/v1/notes", json=VALID_PAYLOAD)
+
+    response = client.get("/api/v1/notes")
+    note = response.json()[0]
+
+    assert "user_id" not in note
+    assert "is_deleted" not in note

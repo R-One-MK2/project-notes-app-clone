@@ -112,6 +112,35 @@ def get_note(
     )
 
 
+@router.get(
+    "",
+)
+def list_notes(
+    service: Annotated[NoteService, Depends(get_note_service)],
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> list[NoteDTO]:
+    """
+    Retrieve all notes owned by the requesting user, excluding soft-deleted ones.
+    Returns an empty list if the user has no notes — this is not an error case.
+    """
+
+    logger.info("GET /api/v1/notes %s", user_id)
+    notes = service.list_notes(user_id=user_id)
+
+    return [
+        NoteDTO(
+            note_id=note.note_id,
+            title=note.title.value,
+            content=note.content.value,
+            folder_id=note.folder_id,
+            is_pinned=note.is_pinned,
+            created_at=note.created_at,
+            updated_at=note.updated_at,
+        )
+        for note in notes
+    ]
+
+
 @router.put(
     "/{note_id}",
     responses={

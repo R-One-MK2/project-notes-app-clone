@@ -2,6 +2,8 @@
 
 from uuid import UUID
 
+from sqlalchemy import select
+
 from app.notes.models import Note
 from app.notes.repositories.mappers import note_from_orm, note_to_orm
 from app.notes.repositories.orm import NoteORM
@@ -34,3 +36,15 @@ class SQLAlchemyNoteRepository:
         if orm is None:
             return None
         return note_from_orm(orm)
+
+    def find_by_user(self, user_id: UUID):
+
+        stmt = (
+            select(NoteORM).where(
+                NoteORM.user_id == user_id, NoteORM.is_deleted.is_(False)
+            )
+        ).order_by(NoteORM.created_at.desc())
+
+        rows = self._session.scalars(stmt).all()
+
+        return [note_from_orm(orm) for orm in rows]
